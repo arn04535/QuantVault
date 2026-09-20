@@ -1,10 +1,10 @@
 # QuantVault
 
-**Local quant-research operating system** — record backtests, sweeps, portfolios, and paper/live runs; analyze, validate, compare, and reproduce from Python or the terminal.
+**Local quant-research operating system** - record backtests, sweeps, portfolios, and paper/live runs; analyze, validate, compare, and reproduce from Python or the terminal.
 
 [Documentation](https://arn04535.github.io/QuantVault/) · [PyPI](https://pypi.org/project/QuantVault/) · [GitHub](https://github.com/arn04535/QuantVault)
 
-Your research data stays on your machine. This repo ships the open-source package only — not strategies, trades, or market data.
+Your research data stays on your machine. This repo ships the open-source package only - not strategies, trades, or market data.
 
 ## Install
 
@@ -51,10 +51,10 @@ Default storage: `./.quantvault/` (override with `--root` / `Ledger.open(path)`)
 |------|------------|
 | Experiment management | Registry, search, tags, notes, compare, lineage, checkpoints, journal, strategy profiles |
 | Performance analysis | Equity, drawdown, risk metrics, trades, costs, benchmark, SRSI, Monte Carlo, sensitivity, robustness, walk-forward, sweeps |
-| Data & reproducibility | Dataset fingerprints, config + env snapshots, seeds, artifacts |
+| Data and reproducibility | Dataset fingerprints, config + env snapshots, seeds, artifacts |
 | Research quality | Warnings, integrity checks, lookahead / survivorship / leakage heuristics, repro validation |
-| Portfolio research | Multi-strategy tracking, allocation, correlation, portfolio risk & drawdown |
-| Visualization & export | Local dashboard, HTML reports, CSV / JSON / Parquet, import/export, backup/restore |
+| Portfolio research | Multi-strategy tracking, allocation, correlation, portfolio risk and drawdown |
+| Visualization and export | Local dashboard, HTML reports, CSV / JSON / Parquet, import/export, backup/restore |
 | Integrations | Custom metrics, custom metadata, plugins, framework adapters |
 | Paper / live | Paper fills, live-vs-backtest comparison |
 | CLI | `quant-vault` (alias: `quantvault`) |
@@ -63,7 +63,7 @@ One local core · three interfaces: **Python API · CLI · optional local dashbo
 
 ## Docs
 
-Full guide — how it works, Python API, complete CLI reference, features, dashboard, privacy:
+Full guide - how it works, Python API, complete CLI reference, features, dashboard, privacy:
 
 **https://arn04535.github.io/QuantVault/**
 
@@ -83,8 +83,8 @@ Kept **out of git** by default (see `.gitignore`):
 - exports, backups, parquet/zip dumps
 - `.env`, credentials, keys, `.pypirc`
 
-Reproducibility metadata stores Python/platform/package versions — not home-directory paths or absolute executable paths.
+Reproducibility metadata stores Python/platform/package versions - not home-directory paths or absolute executable paths.
 
 ## License
 
-MIT · Pre-alpha
+MIT · Pre-alpha · v0.1.0

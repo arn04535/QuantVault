@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>QuantVault â€” Docs</title>
-  <meta name="description" content="Local-first quantitative research ledger. Experiments, analytics, reproducibility, CLI, and a local dashboard." />
+  <title>QuantVault Docs</title>
+  <meta name="description" content="Local-first quantitative research operating system. Experiments, analytics, validation, reproducibility, CLI, and a local dashboard." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg: #07090c;
@@ -19,8 +19,6 @@
       --amber: #ff9f1a;
       --amber-2: #ffc266;
       --green: #2bd576;
-      --red: #ff5c5c;
-      --blue: #4aa3ff;
       --cyan: #2ad4c5;
       --max: 1120px;
     }
@@ -70,13 +68,8 @@
       font-size: .82rem;
       font-weight: 600;
     }
-    .btn.ghost {
-      background: transparent; color: var(--amber);
-    }
-    .hero {
-      padding: 4.5rem 0 3rem;
-      animation: rise .7s ease both;
-    }
+    .btn.ghost { background: transparent; color: var(--amber); }
+    .hero { padding: 4.5rem 0 3rem; animation: rise .7s ease both; }
     @keyframes rise {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: none; }
@@ -113,7 +106,9 @@
       color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: .75rem;
     }
     .dot { width: .55rem; height: .55rem; border-radius: 50%; background: #333; }
-    .dot.r { background: #ff5f57; } .dot.y { background: #febc2e; } .dot.g { background: #28c840; }
+    .dot.r { background: #ff5f57; }
+    .dot.y { background: #febc2e; }
+    .dot.g { background: #28c840; }
     pre, code { font-family: "IBM Plex Mono", monospace; }
     .terminal pre {
       margin: 0; padding: 1rem 1.1rem 1.2rem;
@@ -127,6 +122,12 @@
       margin: 0 0 .35rem;
       font-size: 1.45rem;
       letter-spacing: -0.01em;
+    }
+    h3.group {
+      margin: 1.6rem 0 .6rem;
+      font-size: 1rem;
+      color: var(--muted);
+      font-weight: 600;
     }
     .section-lead { color: var(--muted); margin: 0 0 1.25rem; max-width: 40rem; }
     .grid-3 {
@@ -158,19 +159,22 @@
       font-size: .72rem;
       padding: .2rem .45rem;
     }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: var(--panel); }
     table {
-      width: 100%; border-collapse: collapse; font-size: .9rem;
-      background: var(--panel); border: 1px solid var(--line);
+      width: 100%; border-collapse: collapse; font-size: .88rem;
+      min-width: 640px;
     }
     th, td {
       text-align: left; padding: .65rem .7rem;
       border-bottom: 1px solid var(--line);
       vertical-align: top;
     }
+    tr:last-child td { border-bottom: none; }
     th {
       font-family: "IBM Plex Mono", monospace;
       font-size: .72rem; color: var(--muted);
       text-transform: uppercase; letter-spacing: .05em; font-weight: 500;
+      background: rgba(0,0,0,.2);
     }
     td code, p code, li code {
       color: var(--amber-2);
@@ -178,7 +182,13 @@
       padding: .05rem .3rem;
       font-size: .84em;
     }
-    .cmd { white-space: nowrap; font-family: "IBM Plex Mono", monospace; color: var(--text); }
+    .cmd {
+      font-family: "IBM Plex Mono", monospace;
+      color: var(--text);
+      white-space: normal;
+      word-break: break-word;
+      font-size: .82rem;
+    }
     .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
     .steps li {
       position: relative;
@@ -233,12 +243,12 @@
 
   <div class="shell">
     <header class="hero">
-      <div class="eyebrow">Local-first Â· Open source Â· MIT</div>
+      <div class="eyebrow">Local-first · Open source · MIT</div>
       <h1>QuantVault</h1>
       <p class="lede">
-        A local quant-research operating system for the full experimentation lifecycle. Record every backtest, sweep, and paper trade â€”
-        then compare, analyze, reproduce, and explore from Python or the terminal.
-        Your data stays on your machine.
+        A local quant-research operating system for the full experimentation lifecycle.
+        Record every backtest, sweep, and paper trade - then compare, analyze, validate,
+        reproduce, and explore from Python or the terminal. Your data stays on your machine.
       </p>
       <div class="cta">
         <a class="btn" href="#install">Get started</a>
@@ -248,15 +258,16 @@
       <div class="terminal" aria-label="Example terminal session">
         <div class="terminal-bar">
           <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-          quant-vault Â· local session
+          quant-vault · local session
         </div>
         <pre><span class="c-cmd">$ quant-vault init</span>
 <span class="c-out">Initialized ledger at ./.quantvault/ledger.db</span>
 
-<span class="c-cmd">$ quant-vault create "baseline" --strategy mean_reversion --param lookback=20 --tag pilot</span>
+<span class="c-cmd">$ quant-vault record mean_reversion --param lookback=20 --tag pilot</span>
 <span class="c-ok">{ "id": "a1b2c3d4e5f6", "status": "created", ... }</span>
 
 <span class="c-cmd">$ quant-vault analyze a1b2 --file run.json</span>
+<span class="c-cmd">$ quant-vault validate a1b2</span>
 <span class="c-cmd">$ quant-vault montecarlo a1b2 --file run.json --sims 500</span>
 <span class="c-cmd">$ quant-vault dashboard</span>
 <span class="c-out">QuantVault dashboard at http://127.0.0.1:8787/</span></pre>
@@ -280,51 +291,63 @@
         <span class="pill">CLI: quant-vault</span>
         <span class="pill">alias: quantvault</span>
         <span class="pill">storage: ./.quantvault/</span>
+        <span class="pill">PyPI: QuantVault 0.1.0</span>
       </div>
     </section>
 
     <section id="howto">
       <h2>How to use</h2>
-      <p class="section-lead">QuantVault does not replace your backtest engine. You run research as usual â€” then register results in the ledger.</p>
+      <p class="section-lead">
+        QuantVault does not replace your backtest engine. You run research as usual -
+        then register results in the ledger.
+      </p>
       <ol class="steps">
         <li>
           <strong>Init a ledger</strong> in your research folder.<br />
           <code>quant-vault init</code> creates <code>./.quantvault/ledger.db</code>.
         </li>
         <li>
-          <strong>Create an experiment</strong> when you launch (or finish) a run â€” name, strategy, params, tags, parent id.
+          <strong>Record an experiment</strong> when you launch (or finish) a run -
+          strategy, params, tags, parent id.
         </li>
         <li>
-          <strong>Analyze</strong> with equity / returns / trades JSON. Metrics + charts artifacts are stored locally.
+          <strong>Analyze</strong> with equity / returns / trades JSON.
+          Metrics and chart artifacts are stored locally.
         </li>
         <li>
-          <strong>Optional Monte Carlo</strong> for distribution / fan charts: <code>quant-vault montecarlo &lt;id&gt; --file run.json</code>.
+          <strong>Validate</strong> research quality:
+          <code>quant-vault validate &lt;id&gt;</code>.
         </li>
         <li>
-          <strong>Compare, lineage, export, dashboard</strong> whenever you need answers â€” all offline.
+          <strong>Optional Monte Carlo</strong> for distribution / fan charts:
+          <code>quant-vault montecarlo &lt;id&gt; --file run.json</code>.
+        </li>
+        <li>
+          <strong>Compare, lineage, export, dashboard</strong> whenever you need answers -
+          all offline.
         </li>
       </ol>
       <div class="note" style="margin-top:1rem;">
-        Tip: experiment ids accept unambiguous prefixes â€” <code>quant-vault show a1b2</code> works if only one id starts with <code>a1b2</code>.
+        Tip: experiment ids accept unambiguous prefixes -
+        <code>quant-vault show a1b2</code> works if only one id starts with <code>a1b2</code>.
       </div>
     </section>
 
     <section id="python">
       <h2>Python API</h2>
-      <p class="section-lead">Same core as the CLI. Open a ledger, create runs, attach analysis and reproducibility metadata.</p>
+      <p class="section-lead">Same core as the CLI. Open a ledger, record runs, attach analysis and reproducibility metadata.</p>
       <div class="terminal">
         <div class="terminal-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> python</div>
         <pre>from quantvault import Ledger
 
 with Ledger.open() as ledger:
-    exp = ledger.create(
-        "baseline",
-        strategy="mean_reversion",
-        params={"lookback": 20, "threshold": 1.5},
+    exp = ledger.record(
+        "mean_reversion",
+        parameters={"lookback": 20, "threshold": 1.5},
         tags=["pilot"],
     )
 
-    # ... run your backtest using exp.params ...
+    # ... run your backtest ...
 
     ledger.analyze(
         exp.id,
@@ -334,6 +357,7 @@ with Ledger.open() as ledger:
         cost_bps=5,
         slippage_bps=2,
     )
+    ledger.validate(exp.id)
     ledger.run_monte_carlo(exp.id, returns, n_sims=500, seed=7)
     ledger.attach_repro(exp.id, seed=7, packages=["numpy"])
 
@@ -346,73 +370,81 @@ with Ledger.open() as ledger:
       <h2>Full CLI reference</h2>
       <p class="section-lead">Professional command surface. Global flag: <code>--root PATH</code> to choose the ledger directory.</p>
 
-      <h3 style="margin:1.4rem 0 .6rem;font-size:1rem;color:var(--muted);">Experiment management</h3>
-      <table>
-        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
-        <tbody>
-          <tr><td class="cmd">quant-vault init</td><td>Create local ledger</td></tr>
-          <tr><td class="cmd">quant-vault create NAME [--strategy S] [--param k=v] [--tag T] [--parent ID] [--profile P] [--metric k=v] [--notes TEXT] [--status S]</td><td>Register an experiment</td></tr>
-          <tr><td class="cmd">quant-vault list [--strategy S] [--status S] [--tag T] [-q QUERY] [--json]</td><td>Search / filter</td></tr>
-          <tr><td class="cmd">quant-vault show ID</td><td>Print one experiment</td></tr>
-          <tr><td class="cmd">quant-vault set ID [--name N] [--strategy S] [--status S] [--param k=v] [--metric k=v]</td><td>Update fields</td></tr>
-          <tr><td class="cmd">quant-vault tag ID TAG [TAG...]</td><td>Add tags</td></tr>
-          <tr><td class="cmd">quant-vault note ID TEXT</td><td>Append annotation</td></tr>
-          <tr><td class="cmd">quant-vault compare LEFT RIGHT</td><td>Diff params / metrics / tags</td></tr>
-          <tr><td class="cmd">quant-vault lineage ID [--json]</td><td>Ancestors + children</td></tr>
-          <tr><td class="cmd">quant-vault journal [TEXT] [--experiment ID] [--json]</td><td>Research journal</td></tr>
-          <tr><td class="cmd">quant-vault checkpoint [NAME ID...] [--note TEXT] [--json]</td><td>Freeze a set of runs</td></tr>
-          <tr><td class="cmd">quant-vault profile [NAME] [--set] [--param k=v] [--description TEXT]</td><td>Strategy profiles</td></tr>
-        </tbody>
-      </table>
+      <h3 class="group">Experiment management</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="cmd">quant-vault init</td><td>Create local ledger</td></tr>
+            <tr><td class="cmd">quant-vault record STRATEGY [--param k=v] [--tag T] [--parent ID]</td><td>Record a research run</td></tr>
+            <tr><td class="cmd">quant-vault create NAME [--strategy S] [--param k=v] [--tag T] [--parent ID]</td><td>Register a named experiment</td></tr>
+            <tr><td class="cmd">quant-vault list [--strategy S] [--status S] [--tag T] [-q QUERY] [--json]</td><td>Search / filter</td></tr>
+            <tr><td class="cmd">quant-vault show ID</td><td>Print one experiment</td></tr>
+            <tr><td class="cmd">quant-vault set ID [--name N] [--strategy S] [--status S] [--param k=v]</td><td>Update fields</td></tr>
+            <tr><td class="cmd">quant-vault tag ID TAG [TAG...]</td><td>Add tags</td></tr>
+            <tr><td class="cmd">quant-vault note ID TEXT</td><td>Append annotation</td></tr>
+            <tr><td class="cmd">quant-vault compare LEFT RIGHT</td><td>Diff params / metrics / tags</td></tr>
+            <tr><td class="cmd">quant-vault lineage ID [--json]</td><td>Ancestors + children</td></tr>
+            <tr><td class="cmd">quant-vault journal [TEXT] [--experiment ID]</td><td>Research journal</td></tr>
+            <tr><td class="cmd">quant-vault checkpoint [NAME ID...] [--note TEXT]</td><td>Freeze a set of runs</td></tr>
+            <tr><td class="cmd">quant-vault profile [NAME] [--set] [--param k=v]</td><td>Strategy profiles</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3 style="margin:1.6rem 0 .6rem;font-size:1rem;color:var(--muted);">Analysis</h3>
-      <table>
-        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
-        <tbody>
-          <tr><td class="cmd">quant-vault analyze ID [--file run.json] [--cost-bps N] [--slippage-bps N]</td><td>Performance report (or show stored)</td></tr>
-          <tr><td class="cmd">quant-vault srsi ID [--file run.json] [--window N]</td><td>Sharpe Ratio Stability Index</td></tr>
-          <tr><td class="cmd">quant-vault montecarlo ID --file run.json [--sims N] [--seed N]</td><td>Monte Carlo fan + distribution</td></tr>
-          <tr><td class="cmd">quant-vault robustness ID [ID...] [--metric sharpe]</td><td>Neighborhood stability</td></tr>
-          <tr><td class="cmd">quant-vault sweep [NAME] [--strategy S] [--param k=v] [--grid '{...}'] [--parent ID]</td><td>Parameter sweep â†’ child experiments</td></tr>
-          <tr><td class="cmd">quant-vault batch [--name N] [--file specs.json]</td><td>Create / list batches</td></tr>
-        </tbody>
-      </table>
+      <h3 class="group">Analysis and validation</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="cmd">quant-vault analyze ID [--file run.json] [--cost-bps N] [--slippage-bps N]</td><td>Performance report</td></tr>
+            <tr><td class="cmd">quant-vault validate ID</td><td>Quality / integrity / bias / repro checks</td></tr>
+            <tr><td class="cmd">quant-vault risk ID</td><td>Risk snapshot</td></tr>
+            <tr><td class="cmd">quant-vault srsi ID [--file run.json] [--window N]</td><td>Sharpe Ratio Stability Index</td></tr>
+            <tr><td class="cmd">quant-vault montecarlo ID --file run.json [--sims N] [--seed N]</td><td>Monte Carlo fan + distribution</td></tr>
+            <tr><td class="cmd">quant-vault robustness ID [ID...] [--metric sharpe]</td><td>Neighborhood stability</td></tr>
+            <tr><td class="cmd">quant-vault sensitivity NAME --grid JSON</td><td>Sensitivity batch</td></tr>
+            <tr><td class="cmd">quant-vault sweep [NAME] [--strategy S] [--grid '{...}'] [--parent ID]</td><td>Parameter sweep -&gt; child experiments</td></tr>
+            <tr><td class="cmd">quant-vault batch [--name N] [--file specs.json]</td><td>Create / list batches</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3 style="margin:1.6rem 0 .6rem;font-size:1rem;color:var(--muted);">Data &amp; reproducibility</h3>
-      <table>
-        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
-        <tbody>
-          <tr><td class="cmd">quant-vault dataset --register NAME --path FILE [--version V] [--parent ID]</td><td>Fingerprint &amp; register dataset</td></tr>
-          <tr><td class="cmd">quant-vault dataset [--name N] [--lineage ID] [--json]</td><td>List / lineage</td></tr>
-          <tr><td class="cmd">quant-vault artifact EXP [--file PATH] [--name NAME] [--json]</td><td>Store / list artifacts</td></tr>
-          <tr><td class="cmd">quant-vault repro --attach ID [--config cfg.json] [--dataset ID] [--seed N] [--package PKG]</td><td>Attach repro record</td></tr>
-          <tr><td class="cmd">quant-vault repro --show ID</td><td>Show repro record</td></tr>
-          <tr><td class="cmd">quant-vault reproduce ID</td><td>Bundle needed to re-run</td></tr>
-        </tbody>
-      </table>
+      <h3 class="group">Data and reproducibility</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="cmd">quant-vault dataset --register NAME --path FILE [--version V]</td><td>Fingerprint and register dataset</td></tr>
+            <tr><td class="cmd">quant-vault dataset [--name N] [--lineage ID]</td><td>List / lineage</td></tr>
+            <tr><td class="cmd">quant-vault artifact EXP [--file PATH] [--name NAME]</td><td>Store / list artifacts</td></tr>
+            <tr><td class="cmd">quant-vault repro --attach ID [--config cfg.json] [--dataset ID] [--seed N]</td><td>Attach repro record</td></tr>
+            <tr><td class="cmd">quant-vault repro --show ID</td><td>Show repro record</td></tr>
+            <tr><td class="cmd">quant-vault reproduce ID</td><td>Bundle needed to re-run</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3 style="margin:1.6rem 0 .6rem;font-size:1rem;color:var(--muted);">Reports, export, dashboard</h3>
-      <table>
-        <thead><tr><th>Command</th><th>What it does</th></tr></thead>
-        <tbody>
-          <tr><td class="cmd">quant-vault report [ID] [--format json|html|csv|parquet] [--out PATH]</td><td>Research report</td></tr>
-          <tr><td class="cmd">quant-vault export [ID] [--format json|csv|html|parquet] [--out DIR]</td><td>Export experiment(s)</td></tr>
-          <tr><td class="cmd">quant-vault import FILE.json</td><td>Import experiment pack</td></tr>
-          <tr><td class="cmd">quant-vault backup [--out backup.zip]</td><td>Zip DB + artifacts</td></tr>
-          <tr><td class="cmd">quant-vault restore ARCHIVE.zip</td><td>Restore into ledger root</td></tr>
-                    <tr><td class="cmd">quant-vault record STRATEGY [--param k=v]</td><td>Record a research run</td></tr>
-          <tr><td class="cmd">quant-vault validate ID</td><td>Quality / integrity / bias / repro checks</td></tr>
-          <tr><td class="cmd">quant-vault risk ID</td><td>Risk snapshot</td></tr>
-          <tr><td class="cmd">quant-vault sensitivity NAME --grid JSON</td><td>Sensitivity batch</td></tr>
-          <tr><td class="cmd">quant-vault portfolio --name N --file legs.json</td><td>Multi-strategy portfolio</td></tr>
-          <tr><td class="cmd">quant-vault live --name N --backtest ID</td><td>Paper/live vs backtest</td></tr>
-          <tr><td class="cmd">quant-vault config [--set k=v]</td><td>Local configuration</td></tr>
-          <tr><td class="cmd">quant-vault plugins</td><td>Plugins / custom metrics / adapters</td></tr>
-          <tr><td class="cmd">quant-vault dashboard [--host 127.0.0.1] [--port 8787]</td><td>Local visualization UI</td></tr>
-        </tbody>
-      </table>
+      <h3 class="group">Portfolio, live, export, dashboard</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td class="cmd">quant-vault portfolio --name N --file legs.json</td><td>Multi-strategy portfolio</td></tr>
+            <tr><td class="cmd">quant-vault live --name N --backtest ID [--kind paper|live]</td><td>Paper/live vs backtest</td></tr>
+            <tr><td class="cmd">quant-vault report [ID] [--format json|html|csv|parquet] [--out PATH]</td><td>Research report</td></tr>
+            <tr><td class="cmd">quant-vault export [ID] [--format json|csv|html|parquet] [--out DIR]</td><td>Export experiment(s)</td></tr>
+            <tr><td class="cmd">quant-vault import FILE.json</td><td>Import experiment pack</td></tr>
+            <tr><td class="cmd">quant-vault backup [--out backup.zip]</td><td>Zip DB + artifacts</td></tr>
+            <tr><td class="cmd">quant-vault restore ARCHIVE.zip</td><td>Restore into ledger root</td></tr>
+            <tr><td class="cmd">quant-vault config [--set k=v]</td><td>Local configuration</td></tr>
+            <tr><td class="cmd">quant-vault plugins</td><td>Plugins / custom metrics / adapters</td></tr>
+            <tr><td class="cmd">quant-vault dashboard [--host 127.0.0.1] [--port 8787]</td><td>Local visualization UI</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3 style="margin:1.6rem 0 .6rem;font-size:1rem;color:var(--muted);">Analyze / Monte Carlo input file</h3>
+      <h3 class="group">Analyze / Monte Carlo input file</h3>
       <div class="terminal">
         <div class="terminal-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> run.json</div>
         <pre>{
@@ -434,19 +466,11 @@ with Ledger.open() as ledger:
         </div>
         <div class="card">
           <h3>Performance analysis</h3>
-          <p>Equity, drawdown, Sharpe/Sortino/Calmar, trades, costs &amp; slippage, benchmark, SRSI, Monte Carlo, walk-forward, sweeps, robustness.</p>
+          <p>Equity, drawdown, Sharpe/Sortino/Calmar, trades, costs and slippage, benchmark, SRSI, Monte Carlo, walk-forward, sweeps, robustness.</p>
         </div>
         <div class="card">
-          <h3>Data &amp; reproducibility</h3>
+          <h3>Data and reproducibility</h3>
           <p>Dataset fingerprinting, versions, data lineage, config snapshots, env/package tracking, seeds, artifact storage.</p>
-        </div>
-        <div class="card">
-          <h3>Visualization</h3>
-          <p>Local Bloomberg-style dashboard and HTML reports. Charts only â€” no strategy â€œverdictsâ€.</p>
-        </div>
-        <div class="card">
-          <h3>Export / backup</h3>
-          <p>JSON, CSV, HTML, Parquet (optional), import packs, full DB+artifact zip backup/restore.</p>
         </div>
         <div class="card">
           <h3>Research quality</h3>
@@ -459,6 +483,14 @@ with Ledger.open() as ledger:
         <div class="card">
           <h3>Paper / live</h3>
           <p>Track paper and live fills locally and compare against the original backtest.</p>
+        </div>
+        <div class="card">
+          <h3>Visualization</h3>
+          <p>Local Bloomberg-style dashboard and HTML reports. Charts only - no strategy verdicts.</p>
+        </div>
+        <div class="card">
+          <h3>Export / backup</h3>
+          <p>JSON, CSV, HTML, Parquet (optional), import packs, full DB+artifact zip backup/restore.</p>
         </div>
         <div class="card">
           <h3>Integrations</h3>
@@ -475,7 +507,11 @@ with Ledger.open() as ledger:
       <h2>Local dashboard</h2>
       <div class="two">
         <div>
-          <p class="section-lead">Read-only visualization on the same ledger. Monitor blotter, strategy books, and full experiment pages with equity, drawdown, Monte Carlo fan charts, distributions, walk-forward, trades, costs, and repro panels.</p>
+          <p class="section-lead">
+            Read-only visualization on the same ledger. Monitor blotter, strategy books,
+            portfolios, paper/live runs, and full experiment pages with equity, drawdown,
+            Monte Carlo, validation, walk-forward, trades, costs, and repro panels.
+          </p>
           <div class="terminal">
             <div class="terminal-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> dashboard</div>
             <pre><span class="c-cmd">quant-vault dashboard</span>
@@ -489,7 +525,10 @@ with Ledger.open() as ledger:
         </div>
         <div class="card">
           <h3>Design principle</h3>
-          <p>The dashboard is not the product core. Python API + CLI own the workflow. The UI only renders what you already stored â€” metrics and charts for you to interpret.</p>
+          <p>
+            The dashboard is not the product core. Python API + CLI own the workflow.
+            The UI only renders what you already stored - metrics and charts for you to interpret.
+          </p>
           <div class="pill-row">
             <span class="pill">localhost only</span>
             <span class="pill">same SQLite ledger</span>
@@ -499,23 +538,22 @@ with Ledger.open() as ledger:
       </div>
     </section>
 
-    
     <section id="architecture">
       <h2>Architecture</h2>
       <p class="section-lead">One local core. Three interfaces. Every substantive feature is available from Python and the CLI.</p>
       <div class="terminal">
         <div class="terminal-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span> architecture</div>
         <pre>                 QUANTVAULT
-                      │
-                ┌─────┴─────┐
-                │ Local Core │  experiments · analytics · validation
-                │            │  reproducibility · storage · research
-                └─────┬─────┘
-          ┌───────────┼───────────┐
-          ▼           ▼           ▼
+                      |
+                +-----+-----+
+                | Local Core |  experiments · analytics · validation
+                |            |  reproducibility · storage · research
+                +-----+-----+
+          +-----------+-----------+
+          |           |           |
      Python API      CLI    Local Dashboard
-          └───────────┼───────────┘
-                      ▼
+          +-----------+-----------+
+                      |
                Local Storage
             SQLite · files · artifacts</pre>
       </div>
@@ -523,20 +561,22 @@ with Ledger.open() as ledger:
 
     <section id="privacy">
       <h2>Privacy</h2>
-      <p class="section-lead">This documentation site and the public GitHub repo contain the package only â€” never your strategies, fills, or market data.</p>
+      <p class="section-lead">
+        This documentation site and the public GitHub repo contain the package only -
+        never your strategies, fills, or market data.
+      </p>
       <div class="pill-row">
-        <span class="pill">.QuantVault/ ignored</span>
+        <span class="pill">.quantvault/ ignored</span>
         <span class="pill">exports / backups ignored</span>
-        <span class="pill">.env &amp; keys ignored</span>
+        <span class="pill">.env and keys ignored</span>
         <span class="pill">no absolute home paths in repro</span>
       </div>
     </section>
 
     <footer>
-      <div>QuantVault Â· MIT Â· Pre-alpha</div>
+      <div>QuantVault · MIT · Pre-alpha · v0.1.0</div>
       <div><a href="https://github.com/arn04535/QuantVault">github.com/arn04535/QuantVault</a></div>
     </footer>
   </div>
 </body>
 </html>
-
