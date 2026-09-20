@@ -94,6 +94,28 @@ def research_quality_warnings(
             }
         )
 
+    n_trials = metrics.get("n_trials") or (repro or {}).get("n_trials")
+    if n_trials is not None and int(n_trials) >= 50:
+        warnings.append(
+            {
+                "code": "many_trials",
+                "category": "overfitting",
+                "message": "Large trial count recorded - multiple-testing risk",
+                "data": {"n_trials": int(n_trials)},
+            }
+        )
+
+    rel_gap = metrics.get("overfit_relative_gap")
+    if rel_gap is not None and float(rel_gap) > 0.25:
+        warnings.append(
+            {
+                "code": "large_relative_is_oos_gap",
+                "category": "overfitting",
+                "message": "Relative IS/OOS gap exceeds 25%",
+                "data": {"relative_gap": rel_gap},
+            }
+        )
+
     return warnings
 
 
@@ -173,11 +195,23 @@ def data_quality_checks(
 
 
 def lookahead_bias_checks(params: dict[str, Any] | None = None, meta: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    """Heuristic flags only — cannot prove lookahead without the research code."""
+    """Heuristic flags only - cannot prove lookahead without the research code."""
     findings: list[dict[str, Any]] = []
     blob = {**(params or {}), **(meta or {})}
     text = " ".join(str(v).lower() for v in blob.values()) + " " + " ".join(str(k).lower() for k in blob)
-    suspects = ("future", "next_close", "t+1", "shift(-", "forward_fill_signal", "peek")
+    suspects = (
+        "future",
+        "next_close",
+        "next_open",
+        "t+1",
+        "shift(-",
+        "forward_fill_signal",
+        "peek",
+        "lookahead",
+        "use_future",
+        "leak_future",
+        ".shift(-1)",
+    )
     hits = [s for s in suspects if s in text]
     if hits:
         findings.append(
@@ -191,7 +225,21 @@ def lookahead_bias_checks(params: dict[str, Any] | None = None, meta: dict[str, 
         findings.append(
             {
                 "code": "same_bar_close",
-                "message": "uses_same_bar_close=True — verify execution assumptions",
+                "message": "uses_same_bar_close=True - verify execution assumptions",
+            }
+        )
+    if blob.get("signal_timing") in {"close_same_bar", "intrabar_future"}:
+        findings.append(
+            {
+                "code": "signal_timing",
+                "message": f"signal_timing={blob.get('signal_timing')} may allow same-bar lookahead",
+            }
+        )
+    if blob.get("execution_price") == "close" and blob.get("signal_on") == "close":
+        findings.append(
+            {
+                "code": "signal_and_fill_on_close",
+                "message": "Signal and fill both on close - confirm no same-bar lookahead",
             }
         )
     return findings
@@ -204,7 +252,7 @@ def survivorship_bias_checks(meta: dict[str, Any] | None = None) -> list[dict[st
         findings.append(
             {
                 "code": "delisted_excluded",
-                "message": "Universe excludes delisted names — survivorship risk possible",
+                "message": "Universe excludes delisted names - survivorship risk possible",
             }
         )
     if meta.get("point_in_time") is False:
@@ -221,6 +269,20 @@ def survivorship_bias_checks(meta: dict[str, Any] | None = None) -> list[dict[st
                 "message": "Dataset explicitly not survivorship-free",
             }
         )
+    if meta.get("index_membership") == "current_only":
+        findings.append(
+            {
+                "code": "current_index_membership",
+                "message": "Universe uses current index membership only - classic survivorship pattern",
+            }
+        )
+    if meta.get("rebalance_uses_future_constituents") is True:
+        findings.append(
+            {
+                "code": "future_constituents",
+                "message": "Rebalance uses future constituents",
+            }
+        )
     return findings
 
 
@@ -231,14 +293,21 @@ def leakage_detection(params: dict[str, Any] | None = None, meta: dict[str, Any]
         findings.append(
             {
                 "code": "label_future_returns",
-                "message": "Labels use future returns — check for target leakage",
+                "message": "Labels use future returns - check for target leakage",
             }
         )
     if blob.get("scaler_fit_on") == "full_sample":
         findings.append(
             {
                 "code": "scaler_full_sample",
-                "message": "Scaler fit on full sample — possible leakage across splits",
+                "message": "Scaler fit on full sample - possible leakage across splits",
+            }
+        )
+    if blob.get("feature_selection_on") == "full_sample":
+        findings.append(
+            {
+                "code": "feature_selection_full_sample",
+                "message": "Feature selection on full sample - possible selection leakage",
             }
         )
     overlap = blob.get("train_test_overlap")
@@ -248,6 +317,21 @@ def leakage_detection(params: dict[str, Any] | None = None, meta: dict[str, Any]
                 "code": "train_test_overlap",
                 "message": "Train/test overlap reported",
                 "data": {"overlap": overlap},
+            }
+        )
+    embargo = blob.get("embargo_bars")
+    if embargo is not None and int(embargo) <= 0 and blob.get("purged_cv") is True:
+        findings.append(
+            {
+                "code": "purged_cv_no_embargo",
+                "message": "Purged CV enabled but embargo_bars <= 0",
+            }
+        )
+    if blob.get("target_in_features") is True:
+        findings.append(
+            {
+                "code": "target_in_features",
+                "message": "Target reported present in feature set",
             }
         )
     return findings

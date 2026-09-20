@@ -84,8 +84,8 @@ Every substantive feature works locally and is available from both the Python AP
 | Data and reproducibility | Dataset fingerprints, config + env snapshots, seeds, artifacts |
 | Research quality | Warnings, integrity checks, lookahead / survivorship / leakage heuristics, repro validation |
 | Portfolio research | Multi-strategy tracking, allocation, correlation, portfolio risk and drawdown |
-| Visualization and export | Local dashboard, HTML reports, CSV / JSON / Parquet, import/export, backup/restore |
-| Integrations | Custom metrics, custom metadata, plugins, framework adapters |
+| Visualization and export | Local dashboard, HTML reports, custom charts, CSV / JSON / Parquet, import/export, backup/restore |
+| Integrations | Custom metrics, custom metadata, plugins, framework adapters (`generic`, `vectorbt`, `backtesting.py`, `zipline`) |
 | Paper / live | Paper fills, live-vs-backtest comparison |
 
 ## CLI reference
@@ -126,9 +126,13 @@ quant-vault --root PATH <command> ...
 | `quant-vault srsi ID [--file run.json] [--window N]` | Sharpe Ratio Stability Index |
 | `quant-vault montecarlo ID --file run.json [--sims N] [--seed N]` | Monte Carlo fan + distribution |
 | `quant-vault robustness ID [ID...] [--metric sharpe]` | Neighborhood stability |
+| `quant-vault walkforward ID [--file windows.json]` | Walk-forward windows analysis |
+| `quant-vault overfit ID [--in-sample N] [--out-of-sample N] [--trials N]` | IS/OOS overfitting gap |
 | `quant-vault sensitivity NAME --grid '{"p":[1,2]}' [--strategy S] [--param k=v] [--parent ID]` | One-at-a-time sensitivity batch |
 | `quant-vault sweep [NAME] [--strategy S] [--param k=v] [--grid '{...}'] [--parent ID]` | Parameter sweep -> child experiments |
 | `quant-vault batch [--name N] [--file specs.json]` | Create / list experiment batches |
+| `quant-vault chart ID --file chart.json [--name NAME]` | Store a custom Chart.js chart |
+| `quant-vault adapt FRAMEWORK --file result.json [--dry-run]` | Import via adapter (`generic`, `vectorbt`, `backtesting.py`, `zipline`) |
 
 ### Data and reproducibility
 
@@ -244,4 +248,4 @@ Reproducibility metadata stores Python/platform/package versions - not home-dire
 
 ## License
 
-MIT · Pre-alpha · v0.1.0
+MIT · Pre-alpha · v0.1.1

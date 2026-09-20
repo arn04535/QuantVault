@@ -694,7 +694,7 @@ class Ledger:
             src = Path(source)
             dest.write_bytes(src.read_bytes())
             fp = fingerprint_file(dest)
-        elif isinstance(data, dict):
+        elif isinstance(data, (dict, list)):
             text = json.dumps(data, indent=2, sort_keys=True, default=str)
             dest.write_text(text, encoding="utf-8")
             fp = fingerprint_json(data)
@@ -1045,6 +1045,56 @@ class Ledger:
                 kind="analysis",
             )
         return result
+
+    def record_overfitting(
+        self,
+        experiment_id: str,
+        *,
+        in_sample: float | None = None,
+        out_of_sample: float | None = None,
+        n_trials: int = 1,
+        store: bool = True,
+    ) -> dict[str, Any]:
+        from quantvault.analytics import overfitting_analysis
+
+        exp = self.require(experiment_id)
+        metrics = dict(exp.metrics)
+        is_m = float(in_sample if in_sample is not None else metrics.get("in_sample_sharpe", 0.0))
+        oos_m = float(
+            out_of_sample if out_of_sample is not None else metrics.get("oos_sharpe", 0.0)
+        )
+        result = overfitting_analysis(is_m, oos_m, n_trials=n_trials)
+        metrics["in_sample_sharpe"] = is_m
+        metrics["oos_sharpe"] = oos_m
+        metrics["overfit_relative_gap"] = result.get("relative_gap")
+        self.update(experiment_id, metrics=metrics)
+        if store:
+            self.store_artifact(experiment_id, "overfitting.json", data=result, kind="analysis")
+        return result
+
+    def store_custom_chart(
+        self,
+        experiment_id: str,
+        chart: dict[str, Any],
+        *,
+        name: str = "custom_chart",
+    ) -> dict[str, Any]:
+        """Store a Chart.js-friendly custom chart spec on an experiment.
+
+        Expected keys: title?, type (line|bar), labels, datasets[{label, data, ...}]
+        Multiple charts can be stored under custom_charts.json as a list.
+        """
+        self.require(experiment_id)
+        existing = None
+        for art in self.list_artifacts(experiment_id):
+            if art["name"] == "custom_charts.json":
+                existing = json.loads(Path(art["path"]).read_text(encoding="utf-8"))
+                break
+        charts = list(existing) if isinstance(existing, list) else ([] if existing is None else [existing])
+        entry = {"name": name, **chart}
+        charts = [c for c in charts if c.get("name") != name]
+        charts.append(entry)
+        return self.store_artifact(experiment_id, "custom_charts.json", data=charts, kind="chart")
 
     def robustness_of(
         self,

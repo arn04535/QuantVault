@@ -206,6 +206,42 @@ def build_demo(root: Path) -> Ledger:
     diff = ledger.compare(baseline.id, variant.id)
     ledger.store_artifact(baseline.id, "compare_vs_variant.json", data=diff, kind="analysis")
 
+    for eid in (baseline.id, variant.id, weak.id, mom.id):
+        ledger.validate(
+            eid,
+            data_meta={"survivorship_adjusted": True, "point_in_time": True},
+        )
+
+    ledger.record_overfitting(weak.id, in_sample=2.4, out_of_sample=0.3, n_trials=40)
+    ledger.store_custom_chart(
+        baseline.id,
+        {
+            "title": "Rolling exposure (demo)",
+            "type": "line",
+            "labels": list(range(0, 40, 2)),
+            "datasets": [{"label": "exposure", "data": [0.5 + (i % 5) * 0.05 for i in range(20)]}],
+        },
+        name="exposure",
+    )
+
+    portfolio = ledger.create_portfolio(
+        "demo-book",
+        [
+            {"experiment_id": baseline.id, "name": "mean_reversion", "weight": 0.6},
+            {"experiment_id": mom.id, "name": "momentum", "weight": 0.4},
+        ],
+        meta={"demo": True},
+    )
+    paper_eq = [x * 0.98 for x in equity_a[:80]]
+    live = ledger.track_live(
+        "baseline-paper",
+        kind="paper",
+        backtest_id=baseline.id,
+        fills=[{"pnl": 12.5}, {"pnl": -4.0}, {"pnl": 8.2}],
+        equity=paper_eq,
+        meta={"demo": True},
+    )
+
     export_dir = root / "exports"
     export_experiment(ledger, baseline.id, export_dir, fmt="json")
     export_experiment(ledger, baseline.id, export_dir, fmt="csv")
@@ -219,6 +255,8 @@ def build_demo(root: Path) -> Ledger:
         "weak": weak.id,
         "momentum": mom.id,
         "sweep": sweep["id"],
+        "portfolio": portfolio["id"],
+        "paper": live["id"],
         "dataset": ds_v2["id"],
         "experiments": len(ledger.list()),
         "dashboard": "http://127.0.0.1:8787/",

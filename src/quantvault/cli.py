@@ -408,6 +408,83 @@ def cmd_robustness(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_walkforward(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        exp = ledger.require(args.id)
+        if args.file:
+            windows = json.loads(Path(args.file).read_text(encoding="utf-8"))
+            if isinstance(windows, dict):
+                windows = windows.get("windows") or []
+            _print_json(ledger.record_walk_forward(exp.id, windows))
+            return 0
+        stored = None
+        for art in ledger.list_artifacts(exp.id):
+            if art["name"] == "walk_forward.json":
+                stored = json.loads(Path(art["path"]).read_text(encoding="utf-8"))
+                break
+        if stored is None:
+            raise SystemExit(f"no walk-forward for {exp.id}; pass --file with windows JSON")
+        _print_json(stored)
+    return 0
+
+
+def cmd_overfit(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        _print_json(
+            ledger.record_overfitting(
+                args.id,
+                in_sample=args.in_sample,
+                out_of_sample=args.out_of_sample,
+                n_trials=args.trials,
+            )
+        )
+    return 0
+
+
+def cmd_chart(args: argparse.Namespace) -> int:
+    payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    with _ledger(args) as ledger:
+        _print_json(
+            ledger.store_custom_chart(
+                args.id,
+                payload,
+                name=args.name or payload.get("name") or "custom_chart",
+            )
+        )
+    return 0
+
+
+def cmd_adapt(args: argparse.Namespace) -> int:
+    from quantvault import plugins
+
+    payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    adapted = plugins.adapt_framework(args.framework, payload)
+    if args.dry_run:
+        _print_json(adapted)
+        return 0
+    with _ledger(args) as ledger:
+        exp = ledger.record(
+            adapted.get("strategy") or "adapted",
+            name=adapted.get("name"),
+            parameters=adapted.get("parameters") or {},
+            metrics=adapted.get("metrics") or {},
+            tags=list(adapted.get("tags") or []) + [f"adapter:{args.framework}"],
+            notes=adapted.get("notes") or "",
+        )
+        if adapted.get("meta"):
+            ledger.set_meta(exp.id, adapted["meta"])
+        if adapted.get("equity") or adapted.get("returns") or adapted.get("trades"):
+            ledger.analyze(
+                exp.id,
+                equity=adapted.get("equity") or None,
+                returns=adapted.get("returns") or None,
+                trades=adapted.get("trades") or None,
+                benchmark_returns=adapted.get("benchmark_returns") or None,
+            )
+        _print_json(exp.to_dict())
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     with _ledger(args) as ledger:
         if args.id:
@@ -714,6 +791,26 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("robustness", "Parameter robustness", cmd_robustness)
     p.add_argument("experiments", nargs="+")
     p.add_argument("--metric", default="sharpe")
+
+    p = add("walkforward", "Walk-forward analysis", cmd_walkforward)
+    p.add_argument("id")
+    p.add_argument("--file", help="JSON list of {train_metric,test_metric,...} or {windows:[...]}")
+
+    p = add("overfit", "Overfitting / IS-OOS gap analysis", cmd_overfit)
+    p.add_argument("id")
+    p.add_argument("--in-sample", type=float)
+    p.add_argument("--out-of-sample", type=float)
+    p.add_argument("--trials", type=int, default=1)
+
+    p = add("chart", "Store a custom chart on an experiment", cmd_chart)
+    p.add_argument("id")
+    p.add_argument("--file", required=True, help="Chart.js-style JSON: type, labels, datasets")
+    p.add_argument("--name", default="")
+
+    p = add("adapt", "Import a run via a framework adapter", cmd_adapt)
+    p.add_argument("framework", help="generic|vectorbt|backtesting.py|zipline")
+    p.add_argument("--file", required=True, help="Framework result JSON")
+    p.add_argument("--dry-run", action="store_true", help="Print adapted payload only")
 
     p = add("report", "Research report", cmd_report)
     p.add_argument("id", nargs="?")

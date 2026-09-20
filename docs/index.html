@@ -291,7 +291,7 @@
         <span class="pill">CLI: quant-vault</span>
         <span class="pill">alias: quantvault</span>
         <span class="pill">storage: ./.quantvault/</span>
-        <span class="pill">PyPI: QuantVault 0.1.0</span>
+        <span class="pill">PyPI: QuantVault 0.1.1</span>
       </div>
     </section>
 
@@ -403,9 +403,13 @@ with Ledger.open() as ledger:
             <tr><td class="cmd">quant-vault srsi ID [--file run.json] [--window N]</td><td>Sharpe Ratio Stability Index</td></tr>
             <tr><td class="cmd">quant-vault montecarlo ID --file run.json [--sims N] [--seed N]</td><td>Monte Carlo fan + distribution</td></tr>
             <tr><td class="cmd">quant-vault robustness ID [ID...] [--metric sharpe]</td><td>Neighborhood stability</td></tr>
+            <tr><td class="cmd">quant-vault walkforward ID [--file windows.json]</td><td>Walk-forward analysis</td></tr>
+            <tr><td class="cmd">quant-vault overfit ID [--in-sample N] [--out-of-sample N] [--trials N]</td><td>IS/OOS overfitting gap</td></tr>
             <tr><td class="cmd">quant-vault sensitivity NAME --grid JSON</td><td>Sensitivity batch</td></tr>
             <tr><td class="cmd">quant-vault sweep [NAME] [--strategy S] [--grid '{...}'] [--parent ID]</td><td>Parameter sweep -&gt; child experiments</td></tr>
             <tr><td class="cmd">quant-vault batch [--name N] [--file specs.json]</td><td>Create / list batches</td></tr>
+            <tr><td class="cmd">quant-vault chart ID --file chart.json [--name NAME]</td><td>Store custom chart</td></tr>
+            <tr><td class="cmd">quant-vault adapt FRAMEWORK --file result.json [--dry-run]</td><td>Import via framework adapter</td></tr>
           </tbody>
         </table>
       </div>
@@ -494,7 +498,7 @@ with Ledger.open() as ledger:
         </div>
         <div class="card">
           <h3>Integrations</h3>
-          <p>Custom metrics, custom metadata, plugin hooks, framework adapters.</p>
+          <p>Custom metrics, custom metadata, plugin hooks, and built-in adapters for generic / vectorbt / backtesting.py / zipline-style payloads.</p>
         </div>
         <div class="card">
           <h3>Privacy by default</h3>
@@ -574,7 +578,7 @@ with Ledger.open() as ledger:
     </section>
 
     <footer>
-      <div>QuantVault · MIT · Pre-alpha · v0.1.0</div>
+      <div>QuantVault · MIT · Pre-alpha · v0.1.1</div>
       <div><a href="https://github.com/arn04535/QuantVault">github.com/arn04535/QuantVault</a></div>
     </footer>
   </div>

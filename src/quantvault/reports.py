@@ -10,7 +10,7 @@ from typing import Any
 from quantvault.ledger import Ledger
 
 
-def _load_json_artifact(ledger: Ledger, experiment_id: str, name: str) -> dict[str, Any] | None:
+def _load_json_artifact(ledger: Ledger, experiment_id: str, name: str) -> Any:
     exp = ledger.require(experiment_id)
     for art in ledger.list_artifacts(exp.id):
         if art["name"] == name:
@@ -32,6 +32,9 @@ def research_report(ledger: Ledger, experiment_id: str) -> dict[str, Any]:
         "monte_carlo": _load_json_artifact(ledger, exp.id, "monte_carlo.json"),
         "walk_forward": _load_json_artifact(ledger, exp.id, "walk_forward.json"),
         "robustness": _load_json_artifact(ledger, exp.id, "robustness.json"),
+        "validation": _load_json_artifact(ledger, exp.id, "validation.json"),
+        "overfitting": _load_json_artifact(ledger, exp.id, "overfitting.json"),
+        "custom_charts": _load_json_artifact(ledger, exp.id, "custom_charts.json"),
         "lineage": [e.to_dict() for e in ledger.lineage(exp.id)],
         "children": [e.to_dict() for e in ledger.children(exp.id)],
     }
@@ -156,6 +159,11 @@ def render_experiment_html(ledger: Ledger, experiment_id: str) -> str:
     mc = report.get("monte_carlo") or {}
     wf = report.get("walk_forward") or {}
     rob = report.get("robustness") or {}
+    validation = report.get("validation") or {}
+    overfitting = report.get("overfitting") or {}
+    custom_charts = report.get("custom_charts") or []
+    if isinstance(custom_charts, dict):
+        custom_charts = [custom_charts]
     repro = report.get("repro") or {}
     series = analysis.get("series") or {}
     risk = analysis.get("risk_adjusted") or {}
@@ -179,6 +187,7 @@ def render_experiment_html(ledger: Ledger, experiment_id: str) -> str:
         "mc_dist": mc.get("distribution") or {},
         "wf": wf.get("windows") or [],
         "rolling_sharpe": srsi.get("rolling_sharpes") or [],
+        "custom_charts": custom_charts,
     }
 
     tag_html = " ".join(f'<span class="badge">{html.escape(t)}</span>' for t in tags)
@@ -214,6 +223,58 @@ def render_experiment_html(ledger: Ledger, experiment_id: str) -> str:
         "</tr>"
         for a in report.get("artifacts") or []
     ) or "<tr><td colspan='3' class='empty'>No artifacts</td></tr>"
+
+    def _flag_rows(items: list[dict[str, Any]] | None) -> str:
+        rows = []
+        for item in items or []:
+            msg = item.get("message") or item.get("check") or json.dumps(item, default=str)
+            code = item.get("code") or item.get("severity") or item.get("id") or ""
+            rows.append(
+                "<tr>"
+                f"<td class='amber'>{html.escape(str(code))}</td>"
+                f"<td>{html.escape(str(msg))}</td>"
+                "</tr>"
+            )
+        return "".join(rows) or "<tr><td colspan='2' class='empty'>No flags</td></tr>"
+
+    quality = validation.get("quality_warnings") or []
+    integrity = validation.get("integrity") or []
+    data_q = validation.get("data_quality") or []
+    lookahead = validation.get("lookahead") or []
+    survivorship = validation.get("survivorship") or []
+    leakage = validation.get("leakage") or []
+    repro_v = validation.get("reproducibility") or {}
+    flag_count = sum(len(x) for x in (quality, integrity, data_q, lookahead, survivorship, leakage))
+    validation_panel = f"""
+    <div class="panel table-wrap" style="margin-bottom:.75rem;">
+      <h2>Research Quality & Validation</h2>
+      <div class="sub mono" style="margin-bottom:.55rem;">
+        {flag_count} flags · repro complete={html.escape(str(repro_v.get('complete', '—')))} ·
+        missing={html.escape(', '.join(repro_v.get('missing') or []) or '—')}
+      </div>
+      <div class="grid grid-3">
+        <div>
+          <div class="sub" style="margin-bottom:.3rem;">Quality warnings</div>
+          <table><thead><tr><th>Code</th><th>Message</th></tr></thead><tbody>{_flag_rows(quality)}</tbody></table>
+        </div>
+        <div>
+          <div class="sub" style="margin-bottom:.3rem;">Integrity / data</div>
+          <table><thead><tr><th>Code</th><th>Message</th></tr></thead>
+          <tbody>{_flag_rows(integrity + data_q)}</tbody></table>
+        </div>
+        <div>
+          <div class="sub" style="margin-bottom:.3rem;">Bias heuristics</div>
+          <table><thead><tr><th>Code</th><th>Message</th></tr></thead>
+          <tbody>{_flag_rows(lookahead + survivorship + leakage)}</tbody></table>
+        </div>
+      </div>
+    </div>
+    """ if validation else """
+    <div class="panel" style="margin-bottom:.75rem;">
+      <h2>Research Quality & Validation</h2>
+      <div class="empty">Run <span class="mono">quant-vault validate &lt;id&gt;</span> to populate</div>
+    </div>
+    """
 
     title = html.escape(f"{exp['name']}")
     exp_id = html.escape(exp["id"])
@@ -336,9 +397,19 @@ def render_experiment_html(ledger: Ledger, experiment_id: str) -> str:
           <div class="k">metric cv</div><div class="v">{html.escape(_fmt(rob.get('cv')))}</div>
           <div class="k">IS sharpe</div><div class="v">{html.escape(_fmt(metrics.get('in_sample_sharpe')))}</div>
           <div class="k">OOS sharpe</div><div class="v">{html.escape(_fmt(metrics.get('oos_sharpe')))}</div>
+          <div class="k">overfit gap</div><div class="v">{html.escape(_fmt(overfitting.get('relative_gap', metrics.get('overfit_relative_gap'))))}</div>
+          <div class="k">overfit flag</div><div class="v">{html.escape(str(overfitting.get('overfit_flag', '—')))}</div>
         </div>
         <div class="sub" style="margin-top:.6rem;">{html.escape(exp.get('notes') or 'No notes')}</div>
       </div>
+    </div>
+
+    {validation_panel}
+
+    <div class="panel" style="margin-bottom:.75rem;">
+      <h2>Custom Charts</h2>
+      <div id="customCharts"></div>
+      <div class="empty" id="customChartsEmpty" style="display:none;">No custom charts - store via <span class="mono">quant-vault chart</span></div>
     </div>
 
     <div class="grid grid-3">
@@ -473,6 +544,47 @@ const common = {{
     options: common
   }});
 }})();
+
+(function(){{
+  const charts = D.custom_charts || [];
+  const host = document.getElementById('customCharts');
+  const empty = document.getElementById('customChartsEmpty');
+  if (!charts.length) {{
+    empty.style.display = 'block';
+    return;
+  }}
+  charts.forEach((spec, idx) => {{
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom = '.75rem';
+    const title = document.createElement('div');
+    title.className = 'sub mono';
+    title.style.marginBottom = '.35rem';
+    title.textContent = spec.title || spec.name || ('chart-' + (idx+1));
+    const box = document.createElement('div');
+    box.className = 'chart-box sm';
+    const canvas = document.createElement('canvas');
+    box.appendChild(canvas);
+    wrap.appendChild(title);
+    wrap.appendChild(box);
+    host.appendChild(wrap);
+    new Chart(canvas, {{
+      type: spec.type || 'line',
+      data: {{
+        labels: spec.labels || [],
+        datasets: (spec.datasets || []).map((ds, i) => ({{
+          label: ds.label || ('series-' + (i+1)),
+          data: ds.data || [],
+          borderColor: ds.borderColor || ['#ff9f1a','#3aa0ff','#18c96a','#ff4d4f'][i % 4],
+          backgroundColor: ds.backgroundColor || 'rgba(255,159,26,.15)',
+          pointRadius: ds.pointRadius ?? 0,
+          borderWidth: ds.borderWidth ?? 1.5,
+          fill: ds.fill ?? false,
+        }}))
+      }},
+      options: common
+    }});
+  }});
+}})();
 </script>
 </body>
 </html>
@@ -484,6 +596,9 @@ def render_ledger_html(ledger: Ledger) -> str:
     strategies: dict[str, list[dict[str, Any]]] = {}
     for exp in experiments:
         strategies.setdefault(exp.get("strategy") or "(none)", []).append(exp)
+
+    portfolios = ledger.list_portfolios()
+    live_runs = ledger.list_live()
 
     rows = []
     labels = []
@@ -521,12 +636,36 @@ def render_ledger_html(ledger: Ledger) -> str:
             f'</a>'
         )
 
+    portfolio_rows = "".join(
+        "<tr>"
+        f"<td class='mono'>{html.escape(p['id'][:10])}</td>"
+        f"<td>{html.escape(p['name'])}</td>"
+        f"<td>{html.escape(', '.join(f'{k}={_fmt(v)}' for k, v in (p.get('weights') or {}).items()))}</td>"
+        f"<td class='mono'>{html.escape(str(len(p.get('experiment_ids') or [])))}</td>"
+        f"<td class='mono'>{html.escape(p.get('created_at') or '')}</td>"
+        "</tr>"
+        for p in portfolios
+    ) or "<tr><td colspan='5' class='empty'>No portfolios yet</td></tr>"
+
+    live_rows = "".join(
+        "<tr>"
+        f"<td class='mono'>{html.escape(r['id'][:10])}</td>"
+        f"<td>{html.escape(r['name'])}</td>"
+        f"<td><span class='badge'>{html.escape(r.get('kind') or '')}</span></td>"
+        f"<td><a href='/experiment/{html.escape(r['backtest_id'])}'>{html.escape((r.get('backtest_id') or '—')[:10])}</a></td>"
+        f"<td class='{_cls(((r.get('metrics') or {}).get('comparison') or {}).get('live_mean'))}'>"
+        f"{html.escape(_fmt(((r.get('metrics') or {}).get('comparison') or {}).get('live_mean')))}</td>"
+        f"<td class='mono'>{html.escape(r.get('created_at') or '')}</td>"
+        "</tr>"
+        for r in live_runs
+    ) or "<tr><td colspan='6' class='empty'>No paper/live runs yet</td></tr>"
+
     chart = json.dumps({"labels": labels, "sharpes": sharpes})
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>QL · Monitor</title>
+  <title>QV · Monitor</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>{_bb_css()}</style>
 </head>
@@ -535,6 +674,8 @@ def render_ledger_html(ledger: Ledger) -> str:
     <div class="brand">QuantVault <span>TERMINAL</span></div>
     <span class="pill">{len(experiments)} EXPERIMENTS</span>
     <span class="pill">{len(strategies)} STRATEGIES</span>
+    <span class="pill">{len(portfolios)} PORTFOLIOS</span>
+    <span class="pill">{len(live_runs)} LIVE/PAPER</span>
     <span class="pill">LOCAL</span>
   </div>
   <div class="wrap">
@@ -548,7 +689,7 @@ def render_ledger_html(ledger: Ledger) -> str:
         <div class="grid" style="gap:.5rem;">{"".join(strat_cards) or '<div class="empty">No strategies</div>'}</div>
       </div>
     </div>
-    <div class="panel table-wrap">
+    <div class="panel table-wrap" style="margin-bottom:.75rem;">
       <h2>Experiment Blotter</h2>
       <table>
         <thead>
@@ -560,7 +701,23 @@ def render_ledger_html(ledger: Ledger) -> str:
         <tbody>{"".join(rows)}</tbody>
       </table>
     </div>
-    <div class="footer">CLICK ANY EXPERIMENT FOR FULL QUANT PAGE · MONTE CARLO · WF · REPRO</div>
+    <div class="grid grid-2" style="margin-bottom:.75rem;">
+      <div class="panel table-wrap">
+        <h2>Portfolios</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Weights</th><th>Legs</th><th>Created</th></tr></thead>
+          <tbody>{portfolio_rows}</tbody>
+        </table>
+      </div>
+      <div class="panel table-wrap">
+        <h2>Paper / Live</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Kind</th><th>Backtest</th><th>Live mean</th><th>Created</th></tr></thead>
+          <tbody>{live_rows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="footer">CLICK ANY EXPERIMENT · VALIDATION · MONTE CARLO · WF · REPRO · PORTFOLIO · PAPER/LIVE</div>
   </div>
 <script>
 const data = {chart};
