@@ -60,6 +60,7 @@ quantvault-backup*
 .env
 .env.*
 !.env.example
+.pypirc
 credentials.json
 secrets.json
 *.pem
