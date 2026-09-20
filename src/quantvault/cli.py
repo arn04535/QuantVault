@@ -449,7 +449,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
 
 
 def cmd_restore(args: argparse.Namespace) -> int:
-    root = Path(args.root) if args.root else Path.cwd() / ".QuantVault"
+    root = Path(args.root) if args.root else Path.cwd() / ".quantvault"
     path = restore_ledger(args.archive, root)
     print(path)
     return 0
