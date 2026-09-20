@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from quantledger.cli import main
-from quantledger.ledger import Ledger
+from quantvault.cli import main
+from quantvault.ledger import Ledger
 
 
 def test_create_list_tag_compare(tmp_path: Path) -> None:

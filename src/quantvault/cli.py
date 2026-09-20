@@ -1,4 +1,4 @@
-"""Professional CLI for QuantLedger (`quant-ledger`)."""
+"""Professional CLI for QuantVault (`quant-vault`)."""
 
 from __future__ import annotations
 
@@ -8,16 +8,16 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from quantledger import __version__
-from quantledger.exporters import (
+from quantvault import __version__
+from quantvault.exporters import (
     backup_ledger,
     export_experiment,
     export_experiments,
     import_experiment_json,
     restore_ledger,
 )
-from quantledger.ledger import Ledger
-from quantledger.reports import load_analysis_artifact, research_report, render_experiment_html
+from quantvault.ledger import Ledger
+from quantvault.reports import load_analysis_artifact, research_report, render_experiment_html
 
 
 def _parse_kv(pairs: list[str] | None) -> dict[str, Any]:
@@ -363,7 +363,7 @@ def cmd_srsi(args: argparse.Namespace) -> int:
         exp = ledger.require(args.id)
         if args.file:
             payload = json.loads(Path(args.file).read_text(encoding="utf-8"))
-            from quantledger.analytics import returns_from_equity, srsi_analysis
+            from quantvault.analytics import returns_from_equity, srsi_analysis
 
             returns = payload.get("returns")
             if returns is None and payload.get("equity"):
@@ -443,25 +443,25 @@ def cmd_import(args: argparse.Namespace) -> int:
 
 def cmd_backup(args: argparse.Namespace) -> int:
     with _ledger(args) as ledger:
-        path = backup_ledger(ledger, args.out or "quantledger-backup.zip")
+        path = backup_ledger(ledger, args.out or "quantvault-backup.zip")
         print(path)
     return 0
 
 
 def cmd_restore(args: argparse.Namespace) -> int:
-    root = Path(args.root) if args.root else Path.cwd() / ".quantledger"
+    root = Path(args.root) if args.root else Path.cwd() / ".QuantVault"
     path = restore_ledger(args.archive, root)
     print(path)
     return 0
 
 
 def cmd_dashboard(args: argparse.Namespace) -> int:
-    from quantledger.dashboard import start_dashboard
+    from quantvault.dashboard import start_dashboard
 
     ledger = _ledger(args)
     server = start_dashboard(ledger, host=args.host, port=args.port)
     url = f"http://{args.host}:{args.port}/"
-    print(f"QuantLedger dashboard at {url}")
+    print(f"QuantVault dashboard at {url}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
@@ -473,13 +473,117 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        _print_json(ledger.validate(args.id))
+    return 0
+
+
+def cmd_risk(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        _print_json(ledger.risk(args.id))
+    return 0
+
+
+def cmd_portfolio(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        if args.file:
+            legs = json.loads(Path(args.file).read_text(encoding="utf-8"))
+            _print_json(ledger.create_portfolio(args.name or "portfolio", legs))
+            return 0
+        _print_json(ledger.list_portfolios())
+    return 0
+
+
+def cmd_live(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        if args.name:
+            fills = json.loads(Path(args.fills).read_text(encoding="utf-8")) if args.fills else []
+            if isinstance(fills, dict):
+                fills = fills.get("fills", [])
+            equity = None
+            if args.equity:
+                equity = json.loads(Path(args.equity).read_text(encoding="utf-8"))
+                if isinstance(equity, dict):
+                    equity = equity.get("equity", [])
+            _print_json(
+                ledger.track_live(
+                    args.name,
+                    kind=args.kind,
+                    backtest_id=args.backtest,
+                    fills=fills,
+                    equity=equity,
+                )
+            )
+            return 0
+        _print_json(ledger.list_live(kind=args.kind or None))
+    return 0
+
+
+def cmd_config(args: argparse.Namespace) -> int:
+    from quantvault.config import load_config, save_config
+
+    if args.set:
+        data = _parse_kv(args.set)
+        path = save_config(data, root=args.root)
+        print(path)
+        return 0
+    _print_json(load_config(root=args.root))
+    return 0
+
+
+def cmd_plugins(args: argparse.Namespace) -> int:
+    from quantvault import plugins
+
+    _print_json(
+        {
+            "plugins": [{"name": p["name"], "meta": p.get("meta", {})} for p in plugins.list_plugins()],
+            "metrics": plugins.list_metrics(),
+            "frameworks": plugins.list_frameworks(),
+        }
+    )
+    return 0
+
+
+def cmd_sensitivity(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        perturbations = json.loads(args.grid) if args.grid else {}
+        _print_json(
+            ledger.sensitivity_sweep(
+                args.name,
+                _parse_kv(args.param),
+                perturbations,
+                strategy=args.strategy or "",
+                parent_id=args.parent,
+            )
+        )
+    return 0
+
+
+def cmd_record(args: argparse.Namespace) -> int:
+    with _ledger(args) as ledger:
+        exp = ledger.record(
+            args.strategy,
+            name=args.name,
+            parameters=_parse_kv(args.param),
+            metrics=_parse_kv(args.metric),
+            tags=args.tag or [],
+            notes=args.notes or "",
+            parent_id=args.parent,
+            profile=args.profile,
+            status=args.status,
+        )
+        _print_json(exp.to_dict())
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="quant-ledger",
+        prog="quant-vault",
         description="Local experiment ledger for quantitative research.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("--root", help="Ledger directory (default: ./.quantledger)")
+    parser.add_argument("--root", help="Ledger directory (default: ./.QuantVault)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     def add(name: str, help: str, func: Any, **opts: Any) -> argparse.ArgumentParser:
@@ -625,7 +729,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("file")
 
     p = add("backup", "Backup ledger database and artifacts", cmd_backup)
-    p.add_argument("--out", default="quantledger-backup.zip")
+    p.add_argument("--out", default="quantvault-backup.zip")
 
     p = add("restore", "Restore ledger from a backup zip", cmd_restore)
     p.add_argument("archive")
@@ -633,6 +737,46 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("dashboard", "Start local visualization dashboard", cmd_dashboard)
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8787)
+
+    p = add("record", "Record a research run (API-friendly create)", cmd_record)
+    p.add_argument("strategy")
+    p.add_argument("--name")
+    p.add_argument("--status", default="created")
+    p.add_argument("--parent")
+    p.add_argument("--profile")
+    p.add_argument("--notes", default="")
+    p.add_argument("--param", action="append", default=[])
+    p.add_argument("--metric", action="append", default=[])
+    p.add_argument("--tag", action="append", default=[])
+
+    p = add("validate", "Research quality & validation report", cmd_validate)
+    p.add_argument("id")
+
+    p = add("risk", "Risk snapshot for an experiment", cmd_risk)
+    p.add_argument("id")
+
+    p = add("sensitivity", "One-at-a-time sensitivity batch", cmd_sensitivity)
+    p.add_argument("name")
+    p.add_argument("--strategy", default="")
+    p.add_argument("--param", action="append", default=[])
+    p.add_argument("--grid", help="JSON object of param -> [values]")
+    p.add_argument("--parent")
+
+    p = add("portfolio", "Multi-strategy portfolio tracking", cmd_portfolio)
+    p.add_argument("--name")
+    p.add_argument("--file", help="JSON legs: [{experiment_id, weight}]")
+
+    p = add("live", "Paper/live tracking vs backtest", cmd_live)
+    p.add_argument("--name")
+    p.add_argument("--kind", default="", help="paper|live; empty lists all")
+    p.add_argument("--backtest")
+    p.add_argument("--fills")
+    p.add_argument("--equity")
+
+    p = add("config", "Local configuration", cmd_config)
+    p.add_argument("--set", action="append", default=[], help="key=value")
+
+    add("plugins", "List plugins, custom metrics, framework adapters", cmd_plugins)
 
     return parser
 

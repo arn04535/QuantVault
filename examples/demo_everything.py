@@ -1,4 +1,4 @@
-"""End-to-end demo: exercise QuantLedger features and open the local dashboard.
+"""End-to-end demo: exercise QuantVault features and open the local dashboard.
 
 Run from the repo root:
 
@@ -22,10 +22,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from quantledger.analytics import returns_from_equity
-from quantledger.dashboard import start_dashboard
-from quantledger.exporters import backup_ledger, export_experiment, export_experiments
-from quantledger.ledger import Ledger
+from quantvault.analytics import returns_from_equity
+from quantvault.dashboard import start_dashboard
+from quantvault.exporters import backup_ledger, export_experiment, export_experiments
+from quantvault.ledger import Ledger
 
 
 def _synthetic_equity(n: int = 120, seed: int = 7, drift: float = 0.0008) -> list[float]:
@@ -98,7 +98,7 @@ def build_demo(root: Path) -> Ledger:
         baseline.id,
         dataset_id=ds_v2["id"],
         seed=7,
-        packages=["quantledger"],
+        packages=["quantvault"],
         config={"lookback": 20, "threshold": 1.5, "universe": "demo"},
     )
     ledger.run_monte_carlo(baseline.id, rets_a, n_sims=200, seed=7)
@@ -235,7 +235,7 @@ def build_demo(root: Path) -> Ledger:
 def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
     serve = "--no-serve" not in args
-    root = ROOT / ".quantledger-demo"
+    root = ROOT / ".quantvault-demo"
     print(f"Building demo ledger at {root} ...", flush=True)
     ledger = build_demo(root)
     if not serve:

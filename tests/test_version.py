@@ -1,4 +1,4 @@
-from quantledger import __version__
+from quantvault import __version__
 
 
 def test_version() -> None:

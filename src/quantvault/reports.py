@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from quantledger.ledger import Ledger
+from quantvault.ledger import Ledger
 
 
 def _load_json_artifact(ledger: Ledger, experiment_id: str, name: str) -> dict[str, Any] | None:
@@ -230,7 +230,7 @@ def render_experiment_html(ledger: Ledger, experiment_id: str) -> str:
 </head>
 <body>
   <div class="topbar">
-    <div class="brand"><a href="/">QUANTLEDGER</a> <span>TERMINAL</span></div>
+    <div class="brand"><a href="/">QuantVault</a> <span>TERMINAL</span></div>
     <span class="pill">EXP {exp_id}</span>
     <span class="pill">{strategy}</span>
     <span class="pill">{html.escape(exp.get("status") or "")}</span>
@@ -532,7 +532,7 @@ def render_ledger_html(ledger: Ledger) -> str:
 </head>
 <body>
   <div class="topbar">
-    <div class="brand">QUANTLEDGER <span>TERMINAL</span></div>
+    <div class="brand">QuantVault <span>TERMINAL</span></div>
     <span class="pill">{len(experiments)} EXPERIMENTS</span>
     <span class="pill">{len(strategies)} STRATEGIES</span>
     <span class="pill">LOCAL</span>
@@ -635,7 +635,7 @@ def render_strategy_html(ledger: Ledger, strategy: str) -> str:
 </head>
 <body>
   <div class="topbar">
-    <div class="brand"><a href="/">QUANTLEDGER</a> <span>STRATEGY</span></div>
+    <div class="brand"><a href="/">QuantVault</a> <span>STRATEGY</span></div>
     <span class="pill">{html.escape(strategy)}</span>
     <span class="pill">{len(experiments)} RUNS</span>
   </div>

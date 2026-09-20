@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "QuantLedger"
+name = "QuantVault"
 version = "0.1.0"
-description = "Local experiment ledger for quantitative research management"
+description = "Local quant-research operating system: ledger, analytics, validation, CLI, and dashboard"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -31,13 +31,13 @@ dev = ["pytest>=8.0"]
 export = ["pyarrow>=14"]
 
 [project.scripts]
-quant-ledger = "quantledger.cli:main"
-quantledger = "quantledger.cli:main"
+quant-vault = "quantvault.cli:main"
+quantvault = "quantvault.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/arn04535/QuantLedger"
-Repository = "https://github.com/arn04535/QuantLedger"
-Issues = "https://github.com/arn04535/QuantLedger/issues"
+Homepage = "https://github.com/arn04535/QuantVault"
+Repository = "https://github.com/arn04535/QuantVault"
+Issues = "https://github.com/arn04535/QuantVault/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

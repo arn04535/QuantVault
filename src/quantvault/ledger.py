@@ -56,7 +56,13 @@ class Ledger:
 
     @classmethod
     def open(cls, root: Path | str | None = None) -> Ledger:
-        base = Path(root) if root is not None else Path.cwd() / ".quantledger"
+        if root is None:
+            import os
+
+            env = os.environ.get("QUANTVAULT_ROOT")
+            base = Path(env) if env else Path.cwd() / ".quantvault"
+        else:
+            base = Path(root)
         return cls(Path(base) / "ledger.db")
 
     def close(self) -> None:
@@ -148,6 +154,31 @@ class Ledger:
                 experiment_ids_json TEXT NOT NULL,
                 meta_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS experiment_meta (
+                experiment_id TEXT PRIMARY KEY REFERENCES experiments(id),
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS portfolios (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                weights_json TEXT NOT NULL,
+                experiment_ids_json TEXT NOT NULL,
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS live_runs (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'paper',
+                backtest_id TEXT REFERENCES experiments(id),
+                fills_json TEXT NOT NULL DEFAULT '[]',
+                equity_json TEXT NOT NULL DEFAULT '[]',
+                metrics_json TEXT NOT NULL DEFAULT '{}',
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             );
             """
         )
@@ -558,7 +589,7 @@ class Ledger:
         parent_id: str | None = None,
         meta: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        from quantledger.repro import fingerprint_path
+        from quantvault.repro import fingerprint_path
 
         if fingerprint is None:
             if path is None:
@@ -653,7 +684,7 @@ class Ledger:
         kind: str = "file",
         meta: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        from quantledger.repro import fingerprint_bytes, fingerprint_file, fingerprint_json
+        from quantvault.repro import fingerprint_bytes, fingerprint_file, fingerprint_json
 
         self.require(experiment_id)
         dest_dir = self.artifacts_dir / experiment_id
@@ -738,7 +769,7 @@ class Ledger:
         packages: list[str] | None = None,
         extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        from quantledger.repro import capture_environment, reproducibility_record
+        from quantvault.repro import capture_environment, reproducibility_record
 
         self.require(experiment_id)
         dataset_fp = None
@@ -813,7 +844,7 @@ class Ledger:
         parent_id: str | None = None,
         tags: list[str] | None = None,
     ) -> dict[str, Any]:
-        from quantledger.analytics import expand_param_grid
+        from quantvault.analytics import expand_param_grid
 
         base = dict(base_params or {})
         grid = dict(grid or {})
@@ -937,7 +968,7 @@ class Ledger:
         slippage_bps: float = 0.0,
         store: bool = True,
     ) -> dict[str, Any]:
-        from quantledger.analytics import performance_report
+        from quantvault.analytics import performance_report
 
         self.require(experiment_id)
         report = performance_report(
@@ -978,7 +1009,7 @@ class Ledger:
         seed: int | None = None,
         store: bool = True,
     ) -> dict[str, Any]:
-        from quantledger.analytics import monte_carlo_analysis
+        from quantvault.analytics import monte_carlo_analysis
 
         self.require(experiment_id)
         result = monte_carlo_analysis(returns, n_sims=n_sims, seed=seed)
@@ -998,7 +1029,7 @@ class Ledger:
         *,
         store: bool = True,
     ) -> dict[str, Any]:
-        from quantledger.analytics import walk_forward_analysis
+        from quantvault.analytics import walk_forward_analysis
 
         self.require(experiment_id)
         result = walk_forward_analysis(windows)
@@ -1021,7 +1052,7 @@ class Ledger:
         *,
         metric: str = "sharpe",
     ) -> dict[str, Any]:
-        from quantledger.analytics import parameter_robustness
+        from quantvault.analytics import parameter_robustness
 
         results = []
         for eid in experiment_ids:
@@ -1038,7 +1069,7 @@ class Ledger:
         strategy: str = "",
         parent_id: str | None = None,
     ) -> dict[str, Any]:
-        from quantledger.analytics import sensitivity_analysis
+        from quantvault.analytics import sensitivity_analysis
 
         specs = sensitivity_analysis(base_params, perturbations)
         children = [s for s in specs if s["kind"] != "base"]
@@ -1056,6 +1087,278 @@ class Ledger:
             ],
             meta={"kind": "sensitivity", "perturbations": perturbations},
         )
+
+    def record(
+        self,
+        strategy: str,
+        *,
+        name: str | None = None,
+        parameters: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        metrics: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
+        notes: str = "",
+        parent_id: str | None = None,
+        meta: dict[str, Any] | None = None,
+        trades: list[dict[str, Any]] | None = None,
+        data: Any = None,
+        profile: str | None = None,
+        status: str = "created",
+    ) -> Experiment:
+        """Record a research run (friendly API alias around create + optional meta/trades)."""
+        exp = self.create(
+            name or strategy,
+            strategy=strategy,
+            params=parameters if parameters is not None else params,
+            metrics=metrics,
+            tags=tags,
+            notes=notes,
+            parent_id=parent_id,
+            profile=profile,
+            status=status,
+        )
+        if meta:
+            self.set_meta(exp.id, meta)
+        if trades is not None:
+            self.store_artifact(exp.id, "trades.json", data={"trades": trades}, kind="trades")
+        if data is not None:
+            # store a lightweight fingerprint note only — do not ingest raw market data by default
+            from quantvault.repro import fingerprint_json
+
+            self.set_meta(
+                exp.id,
+                {
+                    **(self.get_meta(exp.id) or {}),
+                    "data_fingerprint": fingerprint_json(data)
+                    if not isinstance(data, (str, Path))
+                    else str(data),
+                },
+            )
+        return exp
+
+    def set_meta(self, experiment_id: str, meta: dict[str, Any]) -> dict[str, Any]:
+        self.require(experiment_id)
+        now = _now()
+        self._conn.execute(
+            """
+            INSERT INTO experiment_meta (experiment_id, meta_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(experiment_id) DO UPDATE SET
+                meta_json=excluded.meta_json,
+                updated_at=excluded.updated_at
+            """,
+            (experiment_id, _dumps(meta), now),
+        )
+        self._conn.commit()
+        return {"experiment_id": experiment_id, "meta": meta, "updated_at": now}
+
+    def get_meta(self, experiment_id: str) -> dict[str, Any]:
+        row = self._conn.execute(
+            "SELECT meta_json FROM experiment_meta WHERE experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()
+        return _loads(row["meta_json"], {}) if row else {}
+
+    def validate(self, experiment_id: str, *, data_meta: dict[str, Any] | None = None) -> dict[str, Any]:
+        from quantvault.reports import load_analysis_artifact
+        from quantvault.validation import validate_experiment_bundle
+
+        exp = self.require(experiment_id)
+        analysis = load_analysis_artifact(self, exp.id)
+        trades = None
+        for art in self.list_artifacts(exp.id):
+            if art["name"] == "trades.json":
+                payload = json.loads(Path(art["path"]).read_text(encoding="utf-8"))
+                trades = payload.get("trades", payload)
+                break
+        report = validate_experiment_bundle(
+            experiment=exp.to_dict(),
+            repro=self.get_repro(exp.id),
+            analysis=analysis,
+            trades=trades,
+            data_meta={**(self.get_meta(exp.id)), **(data_meta or {})},
+        )
+        self.store_artifact(exp.id, "validation.json", data=report, kind="validation")
+        return report
+
+    def create_portfolio(
+        self,
+        name: str,
+        legs: list[dict[str, Any]],
+        *,
+        meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """legs: [{experiment_id, weight}] or [{name, equity, weight}]"""
+        from quantvault.portfolio import (
+            allocation_analysis,
+            portfolio_drawdown,
+            portfolio_from_strategies,
+            portfolio_risk_analytics,
+            strategy_correlation,
+        )
+
+        built_legs = []
+        experiment_ids = []
+        weights: dict[str, float] = {}
+        series_map: dict[str, list[float]] = {}
+        for leg in legs:
+            if "experiment_id" in leg:
+                eid = self.require(leg["experiment_id"]).id
+                experiment_ids.append(eid)
+                analysis = None
+                from quantvault.reports import load_analysis_artifact
+
+                analysis = load_analysis_artifact(self, eid)
+                equity = ((analysis or {}).get("series") or {}).get("equity") or []
+                if not equity:
+                    raise ValueError(f"experiment {eid} has no stored equity series; run analyze first")
+                name_leg = leg.get("name") or eid
+                weight = float(leg.get("weight", 1.0))
+                built_legs.append({"name": name_leg, "equity": equity, "weight": weight})
+                weights[name_leg] = weight
+                series_map[name_leg] = equity
+            else:
+                built_legs.append(leg)
+                weights[leg["name"]] = float(leg.get("weight", 1.0))
+                series_map[leg["name"]] = list(leg["equity"])
+
+        combined = portfolio_from_strategies(built_legs)
+        risk = portfolio_risk_analytics(combined["equity"])
+        created = _now()
+        pid = uuid.uuid4().hex[:12]
+        portfolio = {
+            "id": pid,
+            "name": name,
+            "weights": combined["weights"],
+            "experiment_ids": experiment_ids,
+            "meta": dict(meta or {}),
+            "allocation": allocation_analysis(combined["weights"]),
+            "risk": risk,
+            "drawdown": portfolio_drawdown(combined["equity"]),
+            "correlation": strategy_correlation(series_map),
+            "equity": combined["equity"],
+            "created_at": created,
+        }
+        self._conn.execute(
+            """
+            INSERT INTO portfolios (id, name, weights_json, experiment_ids_json, meta_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (pid, name, _dumps(combined["weights"]), _dumps(experiment_ids), _dumps(portfolio["meta"]), created),
+        )
+        self._conn.commit()
+        # store analytics artifact under a synthetic folder via first experiment if available
+        dest = self.artifacts_dir / f"portfolio_{pid}"
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "portfolio.json").write_text(
+            json.dumps(portfolio, indent=2, sort_keys=True, default=str), encoding="utf-8"
+        )
+        return portfolio
+
+    def list_portfolios(self) -> list[dict[str, Any]]:
+        rows = self._conn.execute("SELECT * FROM portfolios ORDER BY created_at DESC").fetchall()
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "weights": _loads(row["weights_json"], {}),
+                "experiment_ids": _loads(row["experiment_ids_json"], []),
+                "meta": _loads(row["meta_json"], {}),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def track_live(
+        self,
+        name: str,
+        *,
+        kind: str = "paper",
+        backtest_id: str | None = None,
+        fills: list[dict[str, Any]] | None = None,
+        equity: list[float] | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from quantvault.live import live_vs_backtest, paper_summary
+
+        if backtest_id:
+            self.require(backtest_id)
+        now = _now()
+        fills = list(fills or [])
+        equity = list(equity or [])
+        summary = paper_summary(fills)
+        comparison = None
+        if backtest_id and equity:
+            from quantvault.reports import load_analysis_artifact
+
+            analysis = load_analysis_artifact(self, backtest_id) or {}
+            bt_eq = (analysis.get("series") or {}).get("equity") or []
+            if bt_eq:
+                comparison = live_vs_backtest(backtest_equity=bt_eq, live_equity=equity)
+        rid = uuid.uuid4().hex[:12]
+        metrics = {"summary": summary, "comparison": comparison}
+        self._conn.execute(
+            """
+            INSERT INTO live_runs (
+                id, name, kind, backtest_id, fills_json, equity_json, metrics_json, meta_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                rid,
+                name,
+                kind,
+                backtest_id,
+                _dumps(fills),
+                _dumps(equity),
+                _dumps(metrics),
+                _dumps(meta or {}),
+                now,
+                now,
+            ),
+        )
+        self._conn.commit()
+        return {
+            "id": rid,
+            "name": name,
+            "kind": kind,
+            "backtest_id": backtest_id,
+            "metrics": metrics,
+            "meta": meta or {},
+            "created_at": now,
+        }
+
+    def list_live(self, *, kind: str | None = None) -> list[dict[str, Any]]:
+        if kind:
+            rows = self._conn.execute(
+                "SELECT * FROM live_runs WHERE kind = ? ORDER BY created_at DESC", (kind,)
+            ).fetchall()
+        else:
+            rows = self._conn.execute("SELECT * FROM live_runs ORDER BY created_at DESC").fetchall()
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "kind": row["kind"],
+                "backtest_id": row["backtest_id"],
+                "metrics": _loads(row["metrics_json"], {}),
+                "meta": _loads(row["meta_json"], {}),
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+
+    def risk(self, experiment_id: str) -> dict[str, Any]:
+        from quantvault.reports import load_analysis_artifact
+
+        exp = self.require(experiment_id)
+        analysis = load_analysis_artifact(self, exp.id) or {}
+        return {
+            "experiment_id": exp.id,
+            "risk_adjusted": analysis.get("risk_adjusted") or {},
+            "drawdown": analysis.get("drawdown") or {},
+            "metrics": exp.metrics,
+        }
 
 
 def _diff_maps(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:

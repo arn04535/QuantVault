@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from quantledger.cli import main
-from quantledger.exporters import backup_ledger, export_experiment, restore_ledger
-from quantledger.ledger import Ledger
-from quantledger.reports import research_report
+from quantvault.cli import main
+from quantvault.exporters import backup_ledger, export_experiment, restore_ledger
+from quantvault.ledger import Ledger
+from quantvault.reports import research_report
 
 
 def test_prefix_resolve_and_export_roundtrip(tmp_path: Path) -> None:
@@ -19,7 +19,7 @@ def test_prefix_resolve_and_export_roundtrip(tmp_path: Path) -> None:
         path = export_experiment(ledger, prefix, out, fmt="json")
         assert path.exists()
         html_path = export_experiment(ledger, exp.id, out, fmt="html")
-        assert "QUANTLEDGER" in html_path.read_text(encoding="utf-8")
+        assert "QuantVault" in html_path.read_text(encoding="utf-8")
         assert "Monte Carlo" in html_path.read_text(encoding="utf-8")
         csv_path = export_experiment(ledger, exp.id, out, fmt="csv")
         assert csv_path.exists()

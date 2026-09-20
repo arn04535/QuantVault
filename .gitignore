@@ -43,9 +43,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Local QuantLedger research data (never commit)
-.quantledger/
-.quantledger-*/
+# Local QuantVault research data (never commit)
+.quantvault/
+.quantvault-*/
 *.db
 *.sqlite
 *.sqlite3
@@ -54,7 +54,7 @@ Thumbs.db
 exports/
 **/artifacts/
 DEMO_INDEX.json
-quantledger-backup*
+quantvault-backup*
 
 # Secrets / credentials
 .env
@@ -68,3 +68,5 @@ secrets.json
 *.pfx
 id_rsa*
 *.token
+
+.quantledger-demo/

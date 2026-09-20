@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from quantledger.analytics import (
+from quantvault.analytics import (
     expand_param_grid,
     overfitting_analysis,
     performance_report,
     walk_forward_analysis,
 )
-from quantledger.ledger import Ledger
-from quantledger.repro import fingerprint_file, reproducibility_record
+from quantvault.ledger import Ledger
+from quantvault.repro import fingerprint_file, reproducibility_record
 
 
 def test_performance_report_and_overfit() -> None:

@@ -1,54 +1,69 @@
-# QuantLedger
+# QuantVault
 
-**Local-first quantitative research ledger** — record backtests, sweeps, and paper trades; compare, analyze, reproduce, and explore from Python or the terminal.
+**Local quant-research operating system** — one local core, three interfaces:
 
-[Documentation](https://arn04535.github.io/QuantLedger/) · [GitHub](https://github.com/arn04535/QuantLedger)
+**Python API · true CLI · optional local dashboard**
 
-Your research data stays on your machine. This repo ships the open-source package only — not strategies, trades, or market data.
+Record backtests, sweeps, portfolios, and paper/live runs; analyze, validate, compare, and reproduce — all offline.
+
+[Documentation](https://arn04535.github.io/QuantVault/) · [GitHub](https://github.com/arn04535/QuantVault)
+
+Research data stays on your machine. This repo ships the package only.
 
 ## Install
 
 ```bash
-pip install QuantLedger
+pip install QuantVault
 ```
 
 ```bash
-pip install -e ".[dev]"                  # from source
-pip install "QuantLedger[export]"        # optional Parquet
+pip install -e ".[dev]"
+pip install "QuantVault[export]"   # optional Parquet
 ```
 
 ## Quick start
 
 ```bash
-quant-ledger init
-quant-ledger create "baseline" --strategy mean_reversion --param lookback=20 --tag pilot
-quant-ledger list
-quant-ledger analyze <id> --file run.json
-quant-ledger montecarlo <id> --file run.json --sims 500
-quant-ledger dashboard                   # http://127.0.0.1:8787
+quant-vault init
+quant-vault record mean_reversion --param lookback=20 --tag pilot
+quant-vault analyze <id> --file run.json
+quant-vault validate <id>
+quant-vault montecarlo <id> --file run.json
+quant-vault dashboard
 ```
 
 ```python
-from quantledger import Ledger
+from quantvault import Ledger
 
 with Ledger.open() as ledger:
-    exp = ledger.create("baseline", strategy="mean_reversion", params={"lookback": 20})
-    ledger.analyze(exp.id, equity=[100, 101, 102, 101, 103])
+    exp = ledger.record("RSI", parameters={"period": 14}, tags=["pilot"])
+    ledger.analyze(exp.id, equity=[100, 101, 102])
+    ledger.validate(exp.id)
+    ledger.compare(exp.id, other_id)
 ```
 
-## Docs
+## Capabilities
 
-Full guide — how it works, Python API, **complete CLI reference**, features, dashboard, privacy:
+| Area | Status |
+|------|--------|
+| Experiment management | done |
+| Backtest & performance analysis | done |
+| Data & reproducibility | done |
+| Research quality & validation | done |
+| Portfolio & multi-strategy research | done |
+| Local visualization & export | done |
+| Professional CLI | done |
+| Integrations / plugins / custom metrics | done |
+| Paper / live vs backtest tracking | done |
+| Privacy, tests, CI, docs | done |
 
-**https://arn04535.github.io/QuantLedger/**
+Full command reference and guides: **https://arn04535.github.io/QuantVault/**
 
 ## Demo
 
 ```bash
 python examples/demo_everything.py
 ```
-
-Synthetic data only. Opens the local dashboard.
 
 ## License
 

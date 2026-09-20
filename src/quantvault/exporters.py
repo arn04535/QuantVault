@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from quantledger.ledger import Ledger
+from quantvault.ledger import Ledger
 
 
 def export_experiment(
@@ -36,7 +36,7 @@ def export_experiment(
         _write_experiment_csv(path, exp.to_dict())
         return path
     if fmt == "html":
-        from quantledger.reports import render_experiment_html
+        from quantvault.reports import render_experiment_html
 
         path = dest / f"{exp.id}.html"
         path.write_text(render_experiment_html(ledger, exp.id), encoding="utf-8")
@@ -76,7 +76,7 @@ def export_experiments(
         _write_parquet(path, experiments)
         return path
     if fmt == "html":
-        from quantledger.reports import render_ledger_html
+        from quantvault.reports import render_ledger_html
 
         path = dest / "report.html"
         path.write_text(render_ledger_html(ledger), encoding="utf-8")
@@ -199,7 +199,7 @@ def _write_parquet(path: Path, rows: list[dict[str, Any]]) -> None:
         import pyarrow.parquet as pq
     except ImportError as exc:
         raise SystemExit(
-            "Parquet export requires pyarrow. Install with: pip install 'QuantLedger[export]'"
+            "Parquet export requires pyarrow. Install with: pip install 'QuantVault[export]'"
         ) from exc
 
     flat_rows = []
