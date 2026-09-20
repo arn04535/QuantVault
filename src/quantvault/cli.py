@@ -583,7 +583,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Local experiment ledger for quantitative research.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("--root", help="Ledger directory (default: ./.QuantVault)")
+    parser.add_argument("--root", help="Ledger directory (default: ./.quantvault)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     def add(name: str, help: str, func: Any, **opts: Any) -> argparse.ArgumentParser:
