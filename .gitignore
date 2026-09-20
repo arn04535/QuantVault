@@ -43,16 +43,28 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Local QuantLedger data (never commit research DB/files)
+# Local QuantLedger research data (never commit)
 .quantledger/
+.quantledger-*/
 *.db
 *.sqlite
 *.sqlite3
+*.parquet
+*.zip
+exports/
+**/artifacts/
+DEMO_INDEX.json
+quantledger-backup*
 
-# Secrets
+# Secrets / credentials
 .env
 .env.*
 !.env.example
 credentials.json
+secrets.json
 *.pem
 *.key
+*.p12
+*.pfx
+id_rsa*
+*.token

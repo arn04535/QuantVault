@@ -28,8 +28,10 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+export = ["pyarrow>=14"]
 
 [project.scripts]
+quant-ledger = "quantledger.cli:main"
 quantledger = "quantledger.cli:main"
 
 [project.urls]

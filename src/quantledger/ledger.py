@@ -49,7 +49,7 @@ class Ledger:
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self.path)
+        self._conn = sqlite3.connect(self.path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._migrate()
@@ -104,9 +104,64 @@ class Ledger:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS datasets (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                version TEXT NOT NULL DEFAULT '1',
+                fingerprint TEXT NOT NULL,
+                uri TEXT NOT NULL DEFAULT '',
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                parent_id TEXT REFERENCES datasets(id),
+                created_at TEXT NOT NULL,
+                UNIQUE(name, version)
+            );
+            CREATE TABLE IF NOT EXISTS artifacts (
+                id TEXT PRIMARY KEY,
+                experiment_id TEXT NOT NULL REFERENCES experiments(id),
+                name TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'file',
+                path TEXT NOT NULL,
+                fingerprint TEXT NOT NULL DEFAULT '',
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS experiment_repro (
+                experiment_id TEXT PRIMARY KEY REFERENCES experiments(id),
+                dataset_id TEXT REFERENCES datasets(id),
+                config_json TEXT NOT NULL DEFAULT '{}',
+                env_json TEXT NOT NULL DEFAULT '{}',
+                seed INTEGER,
+                repro_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS sweeps (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                base_params_json TEXT NOT NULL,
+                grid_json TEXT NOT NULL,
+                experiment_ids_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS batches (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                experiment_ids_json TEXT NOT NULL,
+                meta_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL
+            );
             """
         )
         self._conn.commit()
+
+    @property
+    def root(self) -> Path:
+        return self.path.parent
+
+    @property
+    def artifacts_dir(self) -> Path:
+        path = self.root / "artifacts"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
 
     def _row_to_experiment(self, row: sqlite3.Row) -> Experiment:
         return Experiment(
@@ -191,11 +246,28 @@ class Ledger:
         ).fetchone()
         return self._row_to_experiment(row) if row else None
 
-    def require(self, experiment_id: str) -> Experiment:
-        exp = self.get(experiment_id)
-        if exp is None:
+    def resolve(self, experiment_id: str) -> Experiment:
+        """Resolve a full id or unambiguous prefix (e.g. ``183``)."""
+        exact = self.get(experiment_id)
+        if exact is not None:
+            return exact
+        matches = [
+            e
+            for e in self._conn.execute(
+                "SELECT * FROM experiments WHERE id LIKE ?",
+                (f"{experiment_id}%",),
+            ).fetchall()
+        ]
+        experiments = [self._row_to_experiment(row) for row in matches]
+        if len(experiments) == 1:
+            return experiments[0]
+        if not experiments:
             raise KeyError(f"experiment not found: {experiment_id}")
-        return exp
+        ids = ", ".join(e.id for e in experiments)
+        raise KeyError(f"ambiguous experiment id {experiment_id!r}: {ids}")
+
+    def require(self, experiment_id: str) -> Experiment:
+        return self.resolve(experiment_id)
 
     def list(
         self,
@@ -472,6 +544,518 @@ class Ledger:
             }
             for row in rows
         ]
+
+    # --- Data & reproducibility ---
+
+    def register_dataset(
+        self,
+        name: str,
+        *,
+        path: Path | str | None = None,
+        fingerprint: str | None = None,
+        version: str = "1",
+        uri: str = "",
+        parent_id: str | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from quantledger.repro import fingerprint_path
+
+        if fingerprint is None:
+            if path is None:
+                raise ValueError("provide path or fingerprint")
+            fingerprint = fingerprint_path(path)
+            uri = uri or str(Path(path))
+        created = _now()
+        ds = {
+            "id": uuid.uuid4().hex[:12],
+            "name": name,
+            "version": version,
+            "fingerprint": fingerprint,
+            "uri": uri,
+            "meta": dict(meta or {}),
+            "parent_id": parent_id,
+            "created_at": created,
+        }
+        self._conn.execute(
+            """
+            INSERT INTO datasets
+                (id, name, version, fingerprint, uri, meta_json, parent_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ds["id"],
+                name,
+                version,
+                fingerprint,
+                uri,
+                _dumps(ds["meta"]),
+                parent_id,
+                created,
+            ),
+        )
+        self._conn.commit()
+        return ds
+
+    def get_dataset(self, dataset_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM datasets WHERE id = ?", (dataset_id,)
+        ).fetchone()
+        return self._row_to_dataset(row) if row else None
+
+    def list_datasets(self, *, name: str | None = None) -> list[dict[str, Any]]:
+        if name is None:
+            rows = self._conn.execute(
+                "SELECT * FROM datasets ORDER BY created_at DESC"
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM datasets WHERE name = ? ORDER BY created_at DESC",
+                (name,),
+            ).fetchall()
+        return [self._row_to_dataset(row) for row in rows]
+
+    def dataset_lineage(self, dataset_id: str) -> list[dict[str, Any]]:
+        chain: list[dict[str, Any]] = []
+        current = self.get_dataset(dataset_id)
+        if current is None:
+            raise KeyError(f"dataset not found: {dataset_id}")
+        seen: set[str] = set()
+        while current is not None:
+            if current["id"] in seen:
+                break
+            seen.add(current["id"])
+            chain.append(current)
+            current = (
+                self.get_dataset(current["parent_id"]) if current["parent_id"] else None
+            )
+        chain.reverse()
+        return chain
+
+    def _row_to_dataset(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "version": row["version"],
+            "fingerprint": row["fingerprint"],
+            "uri": row["uri"],
+            "meta": _loads(row["meta_json"], {}),
+            "parent_id": row["parent_id"],
+            "created_at": row["created_at"],
+        }
+
+    def store_artifact(
+        self,
+        experiment_id: str,
+        name: str,
+        *,
+        source: Path | str | None = None,
+        data: bytes | str | dict[str, Any] | None = None,
+        kind: str = "file",
+        meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from quantledger.repro import fingerprint_bytes, fingerprint_file, fingerprint_json
+
+        self.require(experiment_id)
+        dest_dir = self.artifacts_dir / experiment_id
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / name
+        if source is not None:
+            src = Path(source)
+            dest.write_bytes(src.read_bytes())
+            fp = fingerprint_file(dest)
+        elif isinstance(data, dict):
+            text = json.dumps(data, indent=2, sort_keys=True, default=str)
+            dest.write_text(text, encoding="utf-8")
+            fp = fingerprint_json(data)
+            kind = "json" if kind == "file" else kind
+        elif isinstance(data, str):
+            dest.write_text(data, encoding="utf-8")
+            fp = fingerprint_bytes(data.encode("utf-8"))
+        elif isinstance(data, bytes):
+            dest.write_bytes(data)
+            fp = fingerprint_bytes(data)
+        else:
+            raise ValueError("provide source or data")
+
+        created = _now()
+        art = {
+            "id": uuid.uuid4().hex[:12],
+            "experiment_id": experiment_id,
+            "name": name,
+            "kind": kind,
+            "path": str(dest),
+            "fingerprint": fp,
+            "meta": dict(meta or {}),
+            "created_at": created,
+        }
+        self._conn.execute(
+            """
+            INSERT INTO artifacts
+                (id, experiment_id, name, kind, path, fingerprint, meta_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                art["id"],
+                experiment_id,
+                name,
+                kind,
+                art["path"],
+                fp,
+                _dumps(art["meta"]),
+                created,
+            ),
+        )
+        self._conn.commit()
+        return art
+
+    def list_artifacts(self, experiment_id: str) -> list[dict[str, Any]]:
+        self.require(experiment_id)
+        rows = self._conn.execute(
+            "SELECT * FROM artifacts WHERE experiment_id = ? ORDER BY created_at DESC",
+            (experiment_id,),
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "experiment_id": row["experiment_id"],
+                "name": row["name"],
+                "kind": row["kind"],
+                "path": row["path"],
+                "fingerprint": row["fingerprint"],
+                "meta": _loads(row["meta_json"], {}),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def attach_repro(
+        self,
+        experiment_id: str,
+        *,
+        config: dict[str, Any] | None = None,
+        dataset_id: str | None = None,
+        seed: int | None = None,
+        packages: list[str] | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from quantledger.repro import capture_environment, reproducibility_record
+
+        self.require(experiment_id)
+        dataset_fp = None
+        if dataset_id is not None:
+            ds = self.get_dataset(dataset_id)
+            if ds is None:
+                raise KeyError(f"dataset not found: {dataset_id}")
+            dataset_fp = ds["fingerprint"]
+        env = capture_environment(packages)
+        record = reproducibility_record(
+            config=config or self.require(experiment_id).params,
+            dataset_fingerprint=dataset_fp,
+            seed=seed,
+            environment=env,
+            extra=extra,
+        )
+        now = _now()
+        self._conn.execute(
+            """
+            INSERT INTO experiment_repro (
+                experiment_id, dataset_id, config_json, env_json, seed, repro_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(experiment_id) DO UPDATE SET
+                dataset_id=excluded.dataset_id,
+                config_json=excluded.config_json,
+                env_json=excluded.env_json,
+                seed=excluded.seed,
+                repro_json=excluded.repro_json,
+                updated_at=excluded.updated_at
+            """,
+            (
+                experiment_id,
+                dataset_id,
+                _dumps(record["config"]),
+                _dumps(env),
+                seed,
+                _dumps(record),
+                now,
+            ),
+        )
+        self._conn.commit()
+        record["experiment_id"] = experiment_id
+        record["dataset_id"] = dataset_id
+        record["updated_at"] = now
+        return record
+
+    def get_repro(self, experiment_id: str) -> dict[str, Any] | None:
+        row = self._conn.execute(
+            "SELECT * FROM experiment_repro WHERE experiment_id = ?",
+            (experiment_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        data = _loads(row["repro_json"], {})
+        data.update(
+            {
+                "experiment_id": row["experiment_id"],
+                "dataset_id": row["dataset_id"],
+                "seed": row["seed"],
+                "updated_at": row["updated_at"],
+            }
+        )
+        return data
+
+    def create_sweep(
+        self,
+        name: str,
+        *,
+        strategy: str = "",
+        base_params: dict[str, Any] | None = None,
+        grid: dict[str, list[Any]] | None = None,
+        parent_id: str | None = None,
+        tags: list[str] | None = None,
+    ) -> dict[str, Any]:
+        from quantledger.analytics import expand_param_grid
+
+        base = dict(base_params or {})
+        grid = dict(grid or {})
+        combos = expand_param_grid(base, grid)
+        experiment_ids: list[str] = []
+        for i, params in enumerate(combos):
+            exp = self.create(
+                f"{name}[{i}]",
+                strategy=strategy,
+                params=params,
+                parent_id=parent_id,
+                tags=list(tags or []) + ["sweep"],
+            )
+            experiment_ids.append(exp.id)
+        created = _now()
+        sweep = {
+            "id": uuid.uuid4().hex[:12],
+            "name": name,
+            "base_params": base,
+            "grid": grid,
+            "experiment_ids": experiment_ids,
+            "created_at": created,
+        }
+        self._conn.execute(
+            """
+            INSERT INTO sweeps
+                (id, name, base_params_json, grid_json, experiment_ids_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                sweep["id"],
+                name,
+                _dumps(base),
+                _dumps(grid),
+                _dumps(experiment_ids),
+                created,
+            ),
+        )
+        self._conn.commit()
+        return sweep
+
+    def list_sweeps(self) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM sweeps ORDER BY created_at DESC"
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "base_params": _loads(row["base_params_json"], {}),
+                "grid": _loads(row["grid_json"], {}),
+                "experiment_ids": _loads(row["experiment_ids_json"], []),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def create_batch(
+        self,
+        name: str,
+        specs: list[dict[str, Any]],
+        *,
+        meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        experiment_ids: list[str] = []
+        for i, spec in enumerate(specs):
+            exp = self.create(
+                spec.get("name", f"{name}[{i}]"),
+                strategy=spec.get("strategy", ""),
+                params=spec.get("params"),
+                metrics=spec.get("metrics"),
+                tags=list(spec.get("tags") or []) + ["batch"],
+                notes=spec.get("notes", ""),
+                parent_id=spec.get("parent_id"),
+                status=spec.get("status", "created"),
+                profile=spec.get("profile"),
+            )
+            experiment_ids.append(exp.id)
+        created = _now()
+        batch = {
+            "id": uuid.uuid4().hex[:12],
+            "name": name,
+            "experiment_ids": experiment_ids,
+            "meta": dict(meta or {}),
+            "created_at": created,
+        }
+        self._conn.execute(
+            """
+            INSERT INTO batches (id, name, experiment_ids_json, meta_json, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (batch["id"], name, _dumps(experiment_ids), _dumps(batch["meta"]), created),
+        )
+        self._conn.commit()
+        return batch
+
+    def list_batches(self) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT * FROM batches ORDER BY created_at DESC"
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "experiment_ids": _loads(row["experiment_ids_json"], []),
+                "meta": _loads(row["meta_json"], {}),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    def analyze(
+        self,
+        experiment_id: str,
+        *,
+        equity: list[float] | None = None,
+        returns: list[float] | None = None,
+        trades: list[dict[str, Any]] | None = None,
+        benchmark_returns: list[float] | None = None,
+        cost_bps: float = 0.0,
+        slippage_bps: float = 0.0,
+        store: bool = True,
+    ) -> dict[str, Any]:
+        from quantledger.analytics import performance_report
+
+        self.require(experiment_id)
+        report = performance_report(
+            equity=equity,
+            returns=returns,
+            trades=trades,
+            benchmark_returns=benchmark_returns,
+            cost_bps=cost_bps,
+            slippage_bps=slippage_bps,
+        )
+        metrics = dict(self.require(experiment_id).metrics)
+        metrics.update(
+            {
+                "sharpe": report["risk_adjusted"]["sharpe"],
+                "sortino": report["risk_adjusted"]["sortino"],
+                "calmar": report["risk_adjusted"]["calmar"],
+                "max_drawdown": report["drawdown"]["max_drawdown"],
+                "total_return": report["equity_curve"].get("total_return"),
+                "srsi": report["srsi"]["srsi"],
+            }
+        )
+        self.update(experiment_id, metrics=metrics)
+        if store:
+            self.store_artifact(
+                experiment_id,
+                "performance_report.json",
+                data=report,
+                kind="analysis",
+            )
+        return report
+
+    def run_monte_carlo(
+        self,
+        experiment_id: str,
+        returns: list[float],
+        *,
+        n_sims: int = 500,
+        seed: int | None = None,
+        store: bool = True,
+    ) -> dict[str, Any]:
+        from quantledger.analytics import monte_carlo_analysis
+
+        self.require(experiment_id)
+        result = monte_carlo_analysis(returns, n_sims=n_sims, seed=seed)
+        if store:
+            self.store_artifact(
+                experiment_id,
+                "monte_carlo.json",
+                data=result,
+                kind="analysis",
+            )
+        return result
+
+    def record_walk_forward(
+        self,
+        experiment_id: str,
+        windows: list[dict[str, Any]],
+        *,
+        store: bool = True,
+    ) -> dict[str, Any]:
+        from quantledger.analytics import walk_forward_analysis
+
+        self.require(experiment_id)
+        result = walk_forward_analysis(windows)
+        metrics = dict(self.require(experiment_id).metrics)
+        metrics["walk_forward_test_mean"] = result.get("test_mean")
+        metrics["walk_forward_gap_mean"] = result.get("gap_mean")
+        self.update(experiment_id, metrics=metrics)
+        if store:
+            self.store_artifact(
+                experiment_id,
+                "walk_forward.json",
+                data=result,
+                kind="analysis",
+            )
+        return result
+
+    def robustness_of(
+        self,
+        experiment_ids: list[str],
+        *,
+        metric: str = "sharpe",
+    ) -> dict[str, Any]:
+        from quantledger.analytics import parameter_robustness
+
+        results = []
+        for eid in experiment_ids:
+            exp = self.require(eid)
+            results.append({"id": eid, "params": exp.params, "metrics": exp.metrics})
+        return parameter_robustness(results, metric=metric)
+
+    def sensitivity_sweep(
+        self,
+        name: str,
+        base_params: dict[str, Any],
+        perturbations: dict[str, list[Any]],
+        *,
+        strategy: str = "",
+        parent_id: str | None = None,
+    ) -> dict[str, Any]:
+        from quantledger.analytics import sensitivity_analysis
+
+        specs = sensitivity_analysis(base_params, perturbations)
+        children = [s for s in specs if s["kind"] != "base"]
+        return self.create_batch(
+            name,
+            [
+                {
+                    "name": f"{name}:{s.get('varied')}",
+                    "strategy": strategy,
+                    "params": s["params"],
+                    "parent_id": parent_id,
+                    "tags": ["sensitivity"],
+                }
+                for s in children
+            ],
+            meta={"kind": "sensitivity", "perturbations": perturbations},
+        )
 
 
 def _diff_maps(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:

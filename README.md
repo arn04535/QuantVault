@@ -1,26 +1,10 @@
 # QuantLedger
 
-Free, open-source Python package for quantitative research management.
+Local-first Python toolkit for quantitative research management.
 
-QuantLedger records what you run — backtests, parameter sweeps, portfolio experiments, paper trades — so you can answer:
+Record backtests, parameter sweeps, portfolio experiments, and paper trades — then search, compare, analyze, and reproduce them from Python or the terminal. Optional local dashboard for visualization.
 
-- What did I run?
-- What were the results?
-- What data and parameters did I use?
-- What changed between two experiments?
-- Can I reproduce this experiment?
-- Is the result robust?
-- Is there evidence of overfitting or bias?
-- How do different strategies compare?
-- How does paper/live performance compare with the backtest?
-- Can I export everything?
-- Can I do all of this from Python or the terminal?
-
-Everything is stored **locally** (local database + local files).
-
-## Status
-
-Pre-alpha. API and storage format may change.
+**Your research data never leaves your machine.** QuantLedger uses a local SQLite ledger and local artifact files. This repository contains only the open-source package — not anyone’s strategies, trades, or market data.
 
 ## Install
 
@@ -28,52 +12,80 @@ Pre-alpha. API and storage format may change.
 pip install QuantLedger
 ```
 
-From source (contributors):
+From source:
 
 ```bash
 pip install -e ".[dev]"
 ```
 
+Optional Parquet export:
+
+```bash
+pip install "QuantLedger[export]"
+```
+
 ## Quick start
 
 ```bash
-quantledger init
-quantledger create "baseline" --strategy mean_reversion --param lookback=20 --tag pilot
-quantledger list --strategy mean_reversion
-quantledger compare <id1> <id2>
+quant-ledger init
+quant-ledger create "baseline" --strategy mean_reversion --param lookback=20 --tag pilot
+quant-ledger list
+quant-ledger compare <id1> <id2>
+quant-ledger dashboard
 ```
-
-Python:
 
 ```python
 from quantledger import Ledger
 
 with Ledger.open() as ledger:
-    exp = ledger.create("baseline", strategy="mean_reversion", params={"lookback": 20})
-    print(exp.id)
+    exp = ledger.create(
+        "baseline",
+        strategy="mean_reversion",
+        params={"lookback": 20},
+    )
+    ledger.analyze(exp.id, equity=[100, 101, 102, 101, 103])
 ```
 
-Data lives in `./.quantledger/ledger.db` (override with `--root` / `Ledger.open(path)`).
+Default storage: `./.quantledger/` (override with `--root` / `Ledger.open(path)`).
 
-## Experiment Management (v0.1)
+## What it covers
 
-| Feature | Status |
-|---------|--------|
-| Experiment Ledger / Registry | done |
-| Experiment Search & Filtering | done |
-| Experiment Tagging | done |
-| Experiment Notes & Annotations | done |
-| Experiment Comparison / What Changed? | done (params, metrics, tags) |
-| Experiment Lineage | done |
-| Research Checkpoints | done |
-| Research Journal | done |
-| Strategy Profiles | done |
+| Area | Highlights |
+|------|------------|
+| Experiment management | Registry, search, tags, notes, compare, lineage, checkpoints, journal, strategy profiles |
+| Performance analysis | Equity, drawdown, risk metrics, trades, costs, benchmark, SRSI, Monte Carlo, walk-forward, sweeps |
+| Data & reproducibility | Dataset fingerprints/versions/lineage, config + env snapshots, seeds, artifacts |
+| Visualization & export | Local dashboard, HTML reports, CSV/JSON/Parquet export, backup/restore |
+| CLI | `quant-ledger` (alias: `quantledger`) |
 
-Still deferred: code/data fingerprints, robustness/bias checks, paper vs backtest, export packs.
+## Local dashboard
 
-## Local-first
+```bash
+quant-ledger dashboard
+# http://127.0.0.1:8787
+```
 
-QuantLedger does not require a cloud account. Your experiment history stays on your machine unless you choose to export or sync it yourself.
+The dashboard is a **read-only visualization layer** on the same ledger used by the API and CLI. It shows metrics and charts; it does not judge strategy quality.
+
+Demo (synthetic data only):
+
+```bash
+python examples/demo_everything.py
+```
+
+## Privacy
+
+Kept **out of git** by default (see `.gitignore`):
+
+- `.quantledger/` databases and artifacts
+- exports, backups, parquet/zip dumps
+- `.env`, credentials, keys
+
+Reproducibility metadata stores Python/platform/package versions — not home-directory paths or absolute executable paths.
+
+## Status
+
+Pre-alpha. APIs and on-disk formats may change.
 
 ## License
 
