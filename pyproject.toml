@@ -33,9 +33,9 @@ dev = ["pytest>=8.0"]
 quantledger = "quantledger.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/arn04535/quantledger"
-Repository = "https://github.com/arn04535/quantledger"
-Issues = "https://github.com/arn04535/quantledger/issues"
+Homepage = "https://github.com/arn04535/QuantLedger"
+Repository = "https://github.com/arn04535/QuantLedger"
+Issues = "https://github.com/arn04535/QuantLedger/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
