@@ -22,28 +22,54 @@ Everything is stored **locally** (local database + local files).
 
 Pre-alpha. API and storage format may change.
 
-## Install (development)
+## Install
+
+```bash
+pip install QuantLedger
+```
+
+From source (contributors):
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-## Planned features
+## Quick start
 
-### 1. Experiment Management
+```bash
+quantledger init
+quantledger create "baseline" --strategy mean_reversion --param lookback=20 --tag pilot
+quantledger list --strategy mean_reversion
+quantledger compare <id1> <id2>
+```
 
-- **Experiment Ledger / Registry** — catalog every run with identity, status, and metadata
-- **Experiment Search & Filtering** — find runs by strategy, tags, metrics, date, status
-- **Experiment Tagging** — label runs for grouping and review
-- **Experiment Notes & Annotations** — attach research context to individual runs
-- **Experiment Comparison** — side-by-side metrics, configs, and outcomes
-- **What Changed?** — diff parameters, code/data fingerprints, and results between runs
-- **Experiment Lineage** — parent/child links across sweeps, forks, and follow-ups
-- **Research Checkpoints** — freeze a coherent research state you can return to
-- **Research Journal** — chronological notes across the research process
-- **Strategy Profiles** — reusable strategy definitions and default configs
+Python:
 
-More feature areas (robustness, bias checks, paper/live vs backtest, export, CLI) will land as the package grows.
+```python
+from quantledger import Ledger
+
+with Ledger.open() as ledger:
+    exp = ledger.create("baseline", strategy="mean_reversion", params={"lookback": 20})
+    print(exp.id)
+```
+
+Data lives in `./.quantledger/ledger.db` (override with `--root` / `Ledger.open(path)`).
+
+## Experiment Management (v0.1)
+
+| Feature | Status |
+|---------|--------|
+| Experiment Ledger / Registry | done |
+| Experiment Search & Filtering | done |
+| Experiment Tagging | done |
+| Experiment Notes & Annotations | done |
+| Experiment Comparison / What Changed? | done (params, metrics, tags) |
+| Experiment Lineage | done |
+| Research Checkpoints | done |
+| Research Journal | done |
+| Strategy Profiles | done |
+
+Still deferred: code/data fingerprints, robustness/bias checks, paper vs backtest, export packs.
 
 ## Local-first
 
